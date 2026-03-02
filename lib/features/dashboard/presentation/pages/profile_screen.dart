@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ink_scratch/features/auth/presentation/view_model/auth_viewmodel_provider.dart';
-import 'library_screen.dart';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const _kOrange = Color(0xFFFF6B35);
@@ -15,7 +14,8 @@ const _kCard = Color(0xFF111118);
 const _kBorder = Color(0x12FFFFFF);
 
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({super.key});
+  final VoidCallback onLibraryTap;
+  const ProfileScreen({super.key, required this.onLibraryTap});
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -375,10 +375,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                 sliver: SliverToBoxAdapter(
                   child: GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LibraryScreen()),
-                    ),
+                    onTap:
+                        widget.onLibraryTap, // ← fixed: no more Navigator.push
                     child: Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -514,7 +512,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       return Image.network(
         profileUrl,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _initialsFallback(initials),
+        errorBuilder: (_, _e, _st) => _initialsFallback(initials),
       );
     }
     return _initialsFallback(initials);
@@ -545,8 +543,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     showDialog<bool>(context: context, builder: (_) => _LogoutDialog()).then((
       confirmed,
     ) {
-      if (confirmed == true && mounted)
+      if (confirmed == true && mounted) {
         ref.read(authViewModelProvider.notifier).logout();
+      }
     });
   }
 
@@ -936,7 +935,7 @@ class _EditTab extends StatelessWidget {
         const SizedBox(height: 10),
         ValueListenableBuilder<TextEditingValue>(
           valueListenable: bioCtrl,
-          builder: (_, val, __) => Column(
+          builder: (_, val, _w) => Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Container(

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'dashboard_screen.dart';
+import 'library_screen.dart';
 import 'profile_screen.dart';
 import '../../../manga/presentation/pages/manga_browse_page.dart';
 
@@ -33,6 +34,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void switchTab(int index) => _onItemTapped(index);
 
+  // Library is page index 4 — hidden from navbar, shown as sub-page of Profile
+  void _goToLibrary() => _onItemTapped(4);
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -45,8 +49,12 @@ class _DashboardPageState extends State<DashboardPage> {
       HomeScreen(onBrowseTap: () => switchTab(2)), // 0 — Home
       DashboardScreen(onBrowseTap: () => switchTab(2)), // 1 — Dashboard
       const MangaBrowsePage(), // 2 — Browse Manga
-      const ProfileScreen(), // 3 — Profile
+      ProfileScreen(onLibraryTap: _goToLibrary), // 3 — Profile
+      const LibraryScreen(), // 4 — Library (hidden tab)
     ];
+
+    // Navbar highlights Profile (3) when Library (4) is active
+    final navIndex = _selectedIndex == 4 ? 3 : _selectedIndex;
 
     return Scaffold(
       backgroundColor: _kInk,
@@ -57,7 +65,7 @@ class _DashboardPageState extends State<DashboardPage> {
         children: pages,
       ),
       bottomNavigationBar: _InkNavBar(
-        selectedIndex: _selectedIndex,
+        selectedIndex: navIndex,
         onTap: _onItemTapped,
       ),
     );

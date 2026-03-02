@@ -12,9 +12,9 @@ class EditProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Simply show the ProfileScreen — user can tap the "Edit Profile" tab.
-    // If you want to deep-link straight to the edit tab, replace ProfileScreen
-    // with ProfileScreen(initialTab: 1) and add that named parameter.
-    return const ProfileScreen();
+    // onLibraryTap is a no-op here because this screen is pushed via
+    // Navigator outside the DashboardPage shell. The Library button
+    // simply won't navigate when accessed from this standalone route.
+    return ProfileScreen(onLibraryTap: () {});
   }
 }
