@@ -1,4 +1,6 @@
-import 'package:hive/hive.dart';
+// lib/features/category/data/models/category_hive_model.dart
+
+import 'package:hive_ce/hive.dart'; // ✅ was: package:hive/hive.dart
 
 part 'category_hive_model.g.dart';
 
@@ -23,7 +25,6 @@ class CategoryHiveModel extends HiveObject {
     required this.createdAt,
   });
 
-  // Factory for easy creation with auto timestamp
   factory CategoryHiveModel.create({
     required String id,
     required String name,

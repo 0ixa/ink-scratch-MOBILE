@@ -8,7 +8,7 @@ part of 'auth_hive_model.dart';
 
 class AuthHiveModelAdapter extends TypeAdapter<AuthHiveModel> {
   @override
-  final int typeId = 0;
+  final typeId = 0;
 
   @override
   AuthHiveModel read(BinaryReader reader) {

@@ -1,6 +1,8 @@
+# pubspec.yaml (project root)
+
 name: ink_scratch
 description: "A new Flutter project."
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none'
 
 version: 1.0.0+1
 
@@ -10,28 +12,43 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_riverpod: ^2.6.1
+
+  # UI
   cupertino_icons: ^1.0.8
   smooth_page_indicator: ^2.0.1
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
-  crypto: ^3.0.7
+
+  # State management
+  flutter_riverpod: ^2.6.1
+  riverpod: ^2.6.1
+
+  # Networking
   dio: ^5.9.1
-  image_picker: ^1.2.1
+
+  # Local storage
+  # ✅ Switched from hive to hive_ce — community fork that supports Dart 3.x
+  # hive_ce is a drop-in replacement: same API, same @HiveType/@HiveField annotations
+  hive_ce: ^2.10.1
+  hive_ce_flutter: ^2.2.0
   path_provider: ^2.1.5
-  logger: ^2.6.2
-  mockito: ^5.4.4
+
+  # Utilities
+  crypto: ^3.0.7
   dartz: ^0.10.1
+  logger: ^2.6.2
+  image_picker: ^1.2.1
+
+  # Testing (runtime)
+  mockito: ^5.4.4
+  mocktail: ^1.0.4
+
   flutter_test:
     sdk: flutter
-  mocktail: ^1.0.4
-  test: ^1.26.3
-  riverpod: ^2.6.1
 
 dev_dependencies:
   flutter_lints: ^6.0.0
   build_runner: ^2.4.13
-  hive_generator: ^2.0.1
+  # ✅ hive_ce_generator replaces hive_generator — fully compatible with Dart 3.11
+  hive_ce_generator: ^1.11.0
 
 flutter:
   uses-material-design: true

@@ -1,6 +1,9 @@
+// lib/features/dashboard/presentation/pages/dashboard_page.dart
+
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
+import '../../../manga/presentation/pages/manga_browse_page.dart'; // ✅ added
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -13,7 +16,8 @@ class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
   final PageController _pageController = PageController();
 
-  final List<Widget> _pages = [
+  // ✅ FIX: Browse tab now uses real MangaBrowsePage instead of ComingSoonScreen
+  late final List<Widget> _pages = [
     const HomeScreen(),
     const ComingSoonScreen(
       icon: Icons.collections_bookmark_outlined,
@@ -26,24 +30,12 @@ class _DashboardPageState extends State<DashboardPage> {
         "Filter by reading status",
       ],
     ),
-    const ComingSoonScreen(
-      icon: Icons.explore_outlined,
-      title: "Browse",
-      description: "Discover new manga and trending titles",
-      features: [
-        "Search thousands of manga",
-        "Browse by genre and popularity",
-        "Get personalized recommendations",
-        "View top charts and new releases",
-      ],
-    ),
+    const MangaBrowsePage(), // ✅ Real browse page
     const ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() => _selectedIndex = index);
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 300),
@@ -64,15 +56,9 @@ class _DashboardPageState extends State<DashboardPage> {
     return Scaffold(
       body: PageView(
         controller: _pageController,
-        onPageChanged: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
+        onPageChanged: (index) => setState(() => _selectedIndex = index),
         children: _pages,
       ),
-
-      // Enhanced Material 3 Navigation Bar
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [
@@ -152,7 +138,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
-// Enhanced Coming Soon Screen
+// ── Coming Soon Screen ────────────────────────────────────────────────────────
 class ComingSoonScreen extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -181,8 +167,6 @@ class ComingSoonScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 60),
-
-                // Icon with gradient background
                 Container(
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
@@ -205,10 +189,7 @@ class ComingSoonScreen extends StatelessWidget {
                   ),
                   child: Icon(icon, size: 80, color: colorScheme.primary),
                 ),
-
                 const SizedBox(height: 32),
-
-                // Title
                 Text(
                   title,
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
@@ -216,10 +197,7 @@ class ComingSoonScreen extends StatelessWidget {
                     color: colorScheme.onSurface,
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // Coming Soon Badge
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -239,10 +217,7 @@ class ComingSoonScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
-                // Description
                 Text(
                   description,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -250,10 +225,7 @@ class ComingSoonScreen extends StatelessWidget {
                   ),
                   textAlign: TextAlign.center,
                 ),
-
                 const SizedBox(height: 48),
-
-                // Features Section
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -321,10 +293,7 @@ class ComingSoonScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 48),
-
-                // Notify Button
                 SizedBox(
                   width: double.infinity,
                   height: 56,
@@ -358,7 +327,6 @@ class ComingSoonScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 60),
               ],
             ),

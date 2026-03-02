@@ -1,5 +1,6 @@
 // lib/core/config/app_config.dart
-import 'package:flutter/foundation.dart' show kIsWeb;
+
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'dart:io';
 
 class AppConfig {
@@ -66,12 +67,12 @@ class AppConfig {
 
   // ✅ Print config info (useful for debugging)
   static void printConfig() {
-    print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    print('📱 App Config:');
-    print('   Platform: ${kIsWeb ? "Web" : Platform.operatingSystem}');
-    print('   API Base URL: $baseUrl');
-    print('   Image Base URL: $imageBaseUrl');
-    print('   Computer IP: $_computerIp');
-    print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('📱 App Config:');
+    debugPrint('   Platform: ${kIsWeb ? "Web" : Platform.operatingSystem}');
+    debugPrint('   API Base URL: $baseUrl');
+    debugPrint('   Image Base URL: $imageBaseUrl');
+    debugPrint('   Computer IP: $_computerIp');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 }

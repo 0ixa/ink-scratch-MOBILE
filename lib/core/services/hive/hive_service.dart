@@ -1,4 +1,6 @@
-import 'package:hive_flutter/hive_flutter.dart';
+// lib/core/services/hive/hive_service.dart
+
+import 'package:hive_ce_flutter/hive_flutter.dart'; // ✅ was: hive_flutter/hive_flutter.dart
 
 import '../../../features/auth/data/models/auth_hive_model.dart';
 import '../../../features/category/data/models/category_hive_model.dart';
@@ -12,7 +14,6 @@ class HiveService {
   Future<void> init() async {
     await Hive.initFlutter();
 
-    // Register adapters
     if (!Hive.isAdapterRegistered(HiveTableConstant.authTypeId)) {
       Hive.registerAdapter(AuthHiveModelAdapter());
     }
@@ -20,7 +21,6 @@ class HiveService {
       Hive.registerAdapter(CategoryHiveModelAdapter());
     }
 
-    // Open boxes
     await Hive.openBox<AuthHiveModel>(HiveTableConstant.authBox);
     await Hive.openBox<CategoryHiveModel>(HiveTableConstant.categoryBox);
     await Hive.openBox(HiveTableConstant.sessionBox);

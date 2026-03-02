@@ -8,7 +8,7 @@ part of 'category_hive_model.dart';
 
 class CategoryHiveModelAdapter extends TypeAdapter<CategoryHiveModel> {
   @override
-  final int typeId = 1;
+  final typeId = 1;
 
   @override
   CategoryHiveModel read(BinaryReader reader) {
@@ -19,7 +19,7 @@ class CategoryHiveModelAdapter extends TypeAdapter<CategoryHiveModel> {
     return CategoryHiveModel(
       id: fields[0] as String,
       name: fields[1] as String,
-      color: fields[2] as int,
+      color: (fields[2] as num).toInt(),
       createdAt: fields[3] as DateTime,
     );
   }

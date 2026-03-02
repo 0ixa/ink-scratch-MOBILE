@@ -1,4 +1,6 @@
-import 'package:hive/hive.dart';
+// lib/features/auth/data/models/auth_hive_model.dart
+
+import 'package:hive_ce/hive.dart'; // ✅ was: package:hive/hive.dart
 import '../../../../core/constants/hive_table_constant.dart';
 
 part 'auth_hive_model.g.dart';
@@ -23,8 +25,4 @@ class AuthHiveModel extends HiveObject {
     required this.email,
     required this.passwordHash,
   });
-
-  // Convert to entity (for domain layer)
-  // You'll need this later if you implement full clean architecture
-  // But for now, we use it in ViewModel
 }
