@@ -13,6 +13,7 @@ class ApiEndpoints {
   static const String register = '/auth/register';
   static const String logout = '/auth/logout';
   static const String me = '/auth/me';
+  static const String updateProfile = '/auth/update-profile';
   static const String forgotPassword = '/auth/forgot-password';
   static const String resetPassword = '/auth/reset-password';
 
@@ -21,8 +22,8 @@ class ApiEndpoints {
   static const String mangaSearch = '/manga/search';
 
   static String mangaById(String id) => '/manga/$id';
-  static String mangaChapters(String mangaId) => '/manga/$mangaId/chapters';
-  static String chapterPages(String chapterId) => '/manga/chapters/$chapterId';
+  static String mangaChapters(String id) => '/manga/$id/chapters';
+  static String chapterPages(String id) => '/manga/chapters/$id';
 
   // ── Library ───────────────────────────────────────────────────────────────
   static const String library = '/library';

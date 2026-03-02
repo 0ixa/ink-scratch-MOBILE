@@ -2,8 +2,14 @@
 
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
+import 'dashboard_screen.dart';
+import 'library_screen.dart';
 import 'profile_screen.dart';
-import '../../../manga/presentation/pages/manga_browse_page.dart'; // ✅ added
+
+// ── Brand colors ──────────────────────────────────────────────────────────────
+const _kOrange = Color(0xFFFF6B35);
+const _kInk = Color(0xFF0A0A0F);
+const _kInk2 = Color(0xFF111118);
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -16,24 +22,6 @@ class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
   final PageController _pageController = PageController();
 
-  // ✅ FIX: Browse tab now uses real MangaBrowsePage instead of ComingSoonScreen
-  late final List<Widget> _pages = [
-    const HomeScreen(),
-    const ComingSoonScreen(
-      icon: Icons.collections_bookmark_outlined,
-      title: "Library",
-      description: "Organize and manage your manga collection",
-      features: [
-        "Sort by genres and categories",
-        "Create custom reading lists",
-        "Track your progress",
-        "Filter by reading status",
-      ],
-    ),
-    const MangaBrowsePage(), // ✅ Real browse page
-    const ProfileScreen(),
-  ];
-
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
     _pageController.animateToPage(
@@ -43,6 +31,10 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Called by child pages to switch tabs without pushing a new route.
+  /// This is the fix for the navbar-disappearing bug.
+  void switchTab(int index) => _onItemTapped(index);
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -51,285 +43,128 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final pages = [
+      HomeScreen(onBrowseTap: () => switchTab(1)), // 0 — Home
+      DashboardScreen(onBrowseTap: () => switchTab(2)), // 1 — Dashboard
+      const LibraryScreen(), // 2 — Library
+      const ProfileScreen(), // 3 — Profile
+    ];
 
     return Scaffold(
+      backgroundColor: _kInk,
       body: PageView(
         controller: _pageController,
         onPageChanged: (index) => setState(() => _selectedIndex = index),
-        children: _pages,
+        physics: const NeverScrollableScrollPhysics(),
+        children: pages,
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.shadow.withValues(alpha: 0.1),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: NavigationBar(
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: _onItemTapped,
-          animationDuration: const Duration(milliseconds: 400),
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          height: 80,
-          backgroundColor: colorScheme.surface,
-          indicatorColor: colorScheme.primaryContainer,
-          elevation: 0,
-          destinations: [
-            NavigationDestination(
-              icon: Icon(
-                Icons.home_outlined,
-                color: _selectedIndex == 0
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
-              ),
-              selectedIcon: Icon(
-                Icons.home_rounded,
-                color: colorScheme.primary,
-              ),
-              label: 'Home',
-            ),
-            NavigationDestination(
-              icon: Icon(
-                Icons.collections_bookmark_outlined,
-                color: _selectedIndex == 1
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
-              ),
-              selectedIcon: Icon(
-                Icons.collections_bookmark_rounded,
-                color: colorScheme.primary,
-              ),
-              label: 'Library',
-            ),
-            NavigationDestination(
-              icon: Icon(
-                Icons.explore_outlined,
-                color: _selectedIndex == 2
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
-              ),
-              selectedIcon: Icon(
-                Icons.explore_rounded,
-                color: colorScheme.primary,
-              ),
-              label: 'Browse',
-            ),
-            NavigationDestination(
-              icon: Icon(
-                Icons.person_outline_rounded,
-                color: _selectedIndex == 3
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
-              ),
-              selectedIcon: Icon(
-                Icons.person_rounded,
-                color: colorScheme.primary,
-              ),
-              label: 'Profile',
-            ),
-          ],
-        ),
+      bottomNavigationBar: _InkNavBar(
+        selectedIndex: _selectedIndex,
+        onTap: _onItemTapped,
       ),
     );
   }
 }
 
-// ── Coming Soon Screen ────────────────────────────────────────────────────────
-class ComingSoonScreen extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-  final List<String> features;
+// ── Custom InkScratch Bottom Nav Bar ──────────────────────────────────────────
+class _InkNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onTap;
 
-  const ComingSoonScreen({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.features,
-  });
+  const _InkNavBar({required this.selectedIndex, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    const items = [
+      (
+        icon: Icons.home_outlined,
+        activeIcon: Icons.home_rounded,
+        label: 'Home',
+      ),
+      (
+        icon: Icons.dashboard_outlined,
+        activeIcon: Icons.dashboard_rounded,
+        label: 'Dashboard',
+      ),
+      (
+        icon: Icons.collections_bookmark_outlined,
+        activeIcon: Icons.collections_bookmark_rounded,
+        label: 'Library',
+      ),
+      (
+        icon: Icons.person_outline_rounded,
+        activeIcon: Icons.person_rounded,
+        label: 'Profile',
+      ),
+    ];
 
-    return Scaffold(
-      body: SafeArea(
-        child: ScrollConfiguration(
-          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(height: 60),
-                Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        colorScheme.primaryContainer,
-                        colorScheme.secondaryContainer,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: colorScheme.primary.withValues(alpha: 0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Icon(icon, size: 80, color: colorScheme.primary),
-                ),
-                const SizedBox(height: 32),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    "COMING SOON",
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  description,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 48),
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: colorScheme.shadow.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
+    return Container(
+      decoration: BoxDecoration(
+        color: _kInk2,
+        border: const Border(top: BorderSide(color: Colors.white10)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: List.generate(items.length, (i) {
+              final item = items[i];
+              final isActive = selectedIndex == i;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => onTap(i),
+                  behavior: HitTestBehavior.opaque,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.stars_rounded,
-                            color: colorScheme.primary,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            "Upcoming Features",
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      ...features.map(
-                        (feature) => Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                margin: const EdgeInsets.only(top: 4),
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.check_rounded,
-                                  size: 16,
-                                  color: colorScheme.onPrimary,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  feature,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.bodyLarge?.copyWith(height: 1.5),
-                                ),
-                              ),
-                            ],
-                          ),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 5,
                         ),
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? _kOrange.withValues(alpha: 0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          isActive ? item.activeIcon : item.icon,
+                          size: 22,
+                          color: isActive
+                              ? _kOrange
+                              : Colors.white.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: isActive
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                          color: isActive
+                              ? _kOrange
+                              : Colors.white.withValues(alpha: 0.3),
+                          letterSpacing: isActive ? 0.5 : 0,
+                        ),
+                        child: Text(item.label),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 48),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            "We'll notify you when $title is ready!",
-                          ),
-                          behavior: SnackBarBehavior.floating,
-                          backgroundColor: colorScheme.primary,
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.notifications_active_outlined),
-                    label: const Text(
-                      "Notify Me When Ready",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: colorScheme.onPrimary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 2,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 60),
-              ],
-            ),
+              );
+            }),
           ),
         ),
       ),

@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:ink_scratch/core/services/storage/user_session_service.dart';
 import 'package:ink_scratch/core/error/exception.dart';
 import 'package:ink_scratch/core/api/api_client.dart';
+import 'package:ink_scratch/core/api/api_endpoints.dart';
 import 'package:ink_scratch/features/auth/domain/entities/auth_entity.dart';
 import 'package:logger/logger.dart';
 
@@ -25,13 +26,15 @@ class AuthRemoteDatasource {
   }) async {
     try {
       logger.d('REGISTER REQUEST:');
-      logger.d('   URL: ${apiClient.client.options.baseUrl}/register');
+      logger.d(
+        '   URL: ${apiClient.client.options.baseUrl}${ApiEndpoints.register}',
+      );
       logger.d(
         '   Data: { fullName: $fullName, phoneNumber: $phoneNumber, gender: $gender, email: $email, username: $username }',
       );
 
       final response = await apiClient.client.post(
-        '/register',
+        ApiEndpoints.register,
         data: {
           'fullName': fullName,
           'phoneNumber': phoneNumber,
@@ -82,11 +85,11 @@ class AuthRemoteDatasource {
   }) async {
     try {
       logger.d(
-        'LOGIN REQUEST: URL: ${apiClient.client.options.baseUrl}/login, Email: $email',
+        'LOGIN REQUEST: URL: ${apiClient.client.options.baseUrl}${ApiEndpoints.login}, Email: $email',
       );
 
       final response = await apiClient.client.post(
-        '/login',
+        ApiEndpoints.login,
         data: {'email': email, 'password': password},
       );
 
@@ -126,35 +129,32 @@ class AuthRemoteDatasource {
   }
 
   /// Update user profile (bio and profile picture)
-  /// ✅ Works on both WEB and PHYSICAL DEVICES
+  /// Works on both WEB and PHYSICAL DEVICES
   Future<AuthEntity> updateProfile({
     String? bio,
     String? profilePicturePath,
   }) async {
     try {
       logger.d('UPDATE PROFILE REQUEST:');
-      logger.d('   URL: ${apiClient.client.options.baseUrl}/update-profile');
+      logger.d(
+        '   URL: ${apiClient.client.options.baseUrl}${ApiEndpoints.updateProfile}',
+      );
       logger.d('   Bio: $bio, ProfilePicture: $profilePicturePath');
 
       FormData formData = FormData();
 
-      // Add bio if provided
       if (bio != null && bio.isNotEmpty) {
         formData.fields.add(MapEntry('bio', bio));
       }
 
-      // Add profile image if provided
       if (profilePicturePath != null && profilePicturePath.isNotEmpty) {
-        // ✅ Handle both WEB (blob: URLs) and MOBILE (file paths)
         if (profilePicturePath.startsWith('blob:')) {
-          // WEB: Use XFile to read bytes from blob URL
           logger.d('   Detected WEB environment (blob URL)');
           try {
             final xFile = XFile(profilePicturePath);
             final bytes = await xFile.readAsBytes();
             final fileName =
                 'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
             formData.files.add(
               MapEntry(
                 'profileImage',
@@ -167,7 +167,6 @@ class AuthRemoteDatasource {
             throw ServerException('Failed to read image file');
           }
         } else {
-          // MOBILE: Use file path directly
           logger.d('   Detected MOBILE environment (file path)');
           try {
             formData.files.add(
@@ -188,7 +187,7 @@ class AuthRemoteDatasource {
       }
 
       final response = await apiClient.client.put(
-        '/update-profile',
+        ApiEndpoints.updateProfile,
         data: formData,
         options: Options(contentType: 'multipart/form-data'),
       );
@@ -200,7 +199,6 @@ class AuthRemoteDatasource {
       if (response.data['success'] == true) {
         final userData = response.data['data'];
         final token = await sessionService.getToken();
-
         return AuthEntity.fromMap(userData, token: token);
       } else {
         throw ServerException(

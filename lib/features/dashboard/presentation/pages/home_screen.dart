@@ -3,18 +3,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/presentation/view_model/auth_viewmodel_provider.dart';
-import '../../../manga/presentation/pages/manga_browse_page.dart';
 
 // ── Brand colors ──────────────────────────────────────────────────────────────
 const _kOrange = Color(0xFFFF6B35);
 const _kRed = Color(0xFFE63946);
 const _kInk = Color(0xFF0A0A0F);
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HOME SCREEN
-// ─────────────────────────────────────────────────────────────────────────────
 class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
+  /// Called when "Browse Manga" / any CTA is tapped.
+  /// Parent (DashboardPage) passes switchTab(1) here so the nav bar stays visible.
+  final VoidCallback onBrowseTap;
+
+  const HomeScreen({super.key, required this.onBrowseTap});
 
   static const _genres = [
     'Action',
@@ -66,66 +66,28 @@ class HomeScreen extends ConsumerWidget {
       backgroundColor: _kInk,
       body: Stack(
         children: [
-          // ── Background ──
           _BackgroundGlow(),
-
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // ── App bar ──
               _InkAppBar(username: username),
-
-              // ── Hero section ──
               SliverToBoxAdapter(
                 child: _HeroSection(
                   isAuth: isAuth,
-                  onPrimary: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const MangaBrowsePage(),
-                      ),
-                    );
-                  },
+                  onPrimary: onBrowseTap, // ← uses callback, NOT Navigator.push
                 ),
               ),
-
-              // ── Stats bar ──
               const SliverToBoxAdapter(child: _StatsBar()),
-
-              // ── Features ──
               const SliverToBoxAdapter(child: _FeaturesSection()),
-
-              // ── Genres ──
               SliverToBoxAdapter(
-                child: _GenresSection(
-                  onGenreTap: (genre) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const MangaBrowsePage(),
-                      ),
-                    );
-                  },
-                ),
+                child: _GenresSection(onGenreTap: (genre) => onBrowseTap()),
               ),
-
-              // ── Final CTA ──
               SliverToBoxAdapter(
                 child: _FinalCTA(
                   isAuth: isAuth,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const MangaBrowsePage(),
-                      ),
-                    );
-                  },
+                  onTap: onBrowseTap, // ← uses callback, NOT Navigator.push
                 ),
               ),
-
-              // ── Footer ──
               const SliverToBoxAdapter(child: _Footer()),
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
@@ -173,12 +135,10 @@ class _BackgroundGlow extends StatelessWidget {
             ),
           ),
         ),
-        // Halftone
         Opacity(
           opacity: 0.03,
           child: SizedBox.expand(child: CustomPaint(painter: _DotPainter())),
         ),
-        // Scanlines
         Opacity(
           opacity: 0.015,
           child: SizedBox.expand(
@@ -225,7 +185,6 @@ class _ScanlinePainter extends CustomPainter {
 // ─────────────────────────────────────────────────────────────────────────────
 class _InkAppBar extends StatelessWidget {
   final String username;
-
   const _InkAppBar({required this.username});
 
   @override
@@ -246,7 +205,6 @@ class _InkAppBar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                // Logo
                 Container(
                   width: 30,
                   height: 30,
@@ -287,9 +245,7 @@ class _InkAppBar extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 const Spacer(),
-
                 Text(
                   username,
                   style: TextStyle(
@@ -314,7 +270,6 @@ class _InkAppBar extends StatelessWidget {
 class _HeroSection extends StatelessWidget {
   final bool isAuth;
   final VoidCallback onPrimary;
-
   const _HeroSection({required this.isAuth, required this.onPrimary});
 
   @override
@@ -324,7 +279,6 @@ class _HeroSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Chapter tag
           Row(
             children: [
               Container(width: 28, height: 2, color: _kOrange),
@@ -342,7 +296,6 @@ class _HeroSection extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Giant title
           ShaderMask(
             shaderCallback: (bounds) => const LinearGradient(
               colors: [Colors.white, _kOrange, _kRed],
@@ -380,7 +333,7 @@ class _HeroSection extends StatelessWidget {
           ),
           const SizedBox(height: 28),
 
-          // Genre quick badges
+          // Genre badges
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -420,40 +373,35 @@ class _HeroSection extends StatelessWidget {
           ),
           const SizedBox(height: 32),
 
-          // CTA buttons
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: onPrimary,
-                  child: Container(
-                    height: 52,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [_kOrange, _kRed]),
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _kOrange.withValues(alpha: 0.35),
-                          blurRadius: 20,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        isAuth ? 'Browse Manga' : 'Start Reading Free',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 15,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
+          // CTA
+          GestureDetector(
+            onTap: onPrimary,
+            child: Container(
+              width: double.infinity,
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [_kOrange, _kRed]),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: _kOrange.withValues(alpha: 0.35),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  isAuth ? 'Browse Manga' : 'Start Reading Free',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                    letterSpacing: 1,
                   ),
                 ),
               ),
-            ],
+            ),
           ),
 
           const SizedBox(height: 24),
@@ -496,15 +444,15 @@ class _HeroSection extends StatelessWidget {
                     fontSize: 12,
                     fontFamily: 'monospace',
                   ),
-                  children: [
-                    const TextSpan(
+                  children: const [
+                    TextSpan(
                       text: '12,000+',
                       style: TextStyle(
                         color: _kOrange,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const TextSpan(text: ' readers in the story'),
+                    TextSpan(text: ' readers in the story'),
                   ],
                 ),
               ),
@@ -550,7 +498,6 @@ class _StatsBar extends StatelessWidget {
 class _StatItem extends StatelessWidget {
   final String value;
   final String label;
-
   const _StatItem({required this.value, required this.label});
 
   @override
@@ -600,7 +547,6 @@ class _StatItem extends StatelessWidget {
 
 class _StatDivider extends StatelessWidget {
   const _StatDivider();
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -640,7 +586,6 @@ class _FeaturesSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-
           const Text(
             'WHY READERS\nLOVE US',
             style: TextStyle(
@@ -678,7 +623,6 @@ class _FeatureCard extends StatelessWidget {
   final String icon;
   final String title;
   final String desc;
-
   const _FeatureCard({
     required this.icon,
     required this.title,
@@ -729,7 +673,6 @@ class _FeatureCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _GenresSection extends StatelessWidget {
   final ValueChanged<String> onGenreTap;
-
   const _GenresSection({required this.onGenreTap});
 
   static const _allGenres = [
@@ -801,6 +744,7 @@ class _GenresSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
+
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -846,7 +790,6 @@ class _GenresSection extends StatelessWidget {
 class _FinalCTA extends StatelessWidget {
   final bool isAuth;
   final VoidCallback onTap;
-
   const _FinalCTA({required this.isAuth, required this.onTap});
 
   @override
@@ -894,7 +837,6 @@ class _FinalCTA extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-
           const Text(
             'YOUR STORY\nSTARTS NOW',
             textAlign: TextAlign.center,
@@ -907,7 +849,6 @@ class _FinalCTA extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-
           ShaderMask(
             shaderCallback: (bounds) => const LinearGradient(
               colors: [_kOrange, _kRed],
@@ -923,7 +864,6 @@ class _FinalCTA extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 28),
-
           GestureDetector(
             onTap: onTap,
             child: Container(

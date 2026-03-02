@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/config/app_config.dart';
 import 'core/services/hive/hive_service.dart';
 import 'app/themes/theme_provider.dart';
 import 'features/splash/presentation/pages/splash_page.dart';
@@ -10,6 +11,9 @@ void main() async {
 
   // Initialize Hive using the singleton instance
   await HiveService().init();
+
+  // Print API config to debug console — confirms correct IP/URL on startup
+  AppConfig.printConfig();
 
   runApp(const ProviderScope(child: MyApp()));
 }
