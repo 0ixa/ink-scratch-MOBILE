@@ -7,21 +7,18 @@ import '../models/reading_history_hive_model.dart';
 
 class ReadingHistoryServiceImpl implements ReadingHistoryService {
   static const String _boxName = 'reading_history';
-  late Box<dynamic> _box;
+  late Box<ReadingHistoryHiveModel> _box;
 
-  /// Initialize the Hive box for reading history
+  /// Initialize the Hive box for reading history.
+  /// Adapter registration is handled centrally by hive_registrar.g.dart.
   Future<void> init() async {
-    if (!Hive.isAdapterRegistered(0)) {
-      Hive.registerAdapter(ReadingHistoryHiveModelAdapter());
-    }
-    _box = await Hive.openBox(_boxName);
+    _box = await Hive.openBox<ReadingHistoryHiveModel>(_boxName);
   }
 
   @override
   Future<List<ReadingHistoryEntry>> getAll() async {
     try {
-      final values = _box.values.cast<ReadingHistoryHiveModel>();
-      return values.map((model) => model.toDomain()).toList();
+      return _box.values.map((model) => model.toDomain()).toList();
     } catch (e) {
       return [];
     }
@@ -40,9 +37,11 @@ class ReadingHistoryServiceImpl implements ReadingHistoryService {
   @override
   Future<ReadingHistoryEntry?> getByMangaId(String mangaId) async {
     try {
-      final values = _box.values.cast<ReadingHistoryHiveModel>();
-      final entries = values.where((m) => m.mangaId == mangaId);
-      return entries.isNotEmpty ? entries.first.toDomain() : null;
+      final entry = _box.values.firstWhere(
+        (m) => m.mangaId == mangaId,
+        orElse: () => throw StateError('not found'),
+      );
+      return entry.toDomain();
     } catch (e) {
       return null;
     }
@@ -50,39 +49,23 @@ class ReadingHistoryServiceImpl implements ReadingHistoryService {
 
   @override
   Future<void> add(ReadingHistoryEntry entry) async {
-    try {
-      final model = ReadingHistoryHiveModel.fromDomain(entry);
-      await _box.put(entry.id, model);
-    } catch (e) {
-      rethrow;
-    }
+    final model = ReadingHistoryHiveModel.fromDomain(entry);
+    await _box.put(entry.id, model);
   }
 
   @override
   Future<void> update(ReadingHistoryEntry entry) async {
-    try {
-      final model = ReadingHistoryHiveModel.fromDomain(entry);
-      await _box.put(entry.id, model);
-    } catch (e) {
-      rethrow;
-    }
+    final model = ReadingHistoryHiveModel.fromDomain(entry);
+    await _box.put(entry.id, model);
   }
 
   @override
   Future<void> delete(String id) async {
-    try {
-      await _box.delete(id);
-    } catch (e) {
-      rethrow;
-    }
+    await _box.delete(id);
   }
 
   @override
   Future<void> clear() async {
-    try {
-      await _box.clear();
-    } catch (e) {
-      rethrow;
-    }
+    await _box.clear();
   }
 }

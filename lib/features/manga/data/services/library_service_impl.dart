@@ -7,21 +7,18 @@ import '../models/library_manga_hive_model.dart';
 
 class LibraryServiceImpl implements LibraryService {
   static const String _boxName = 'library';
-  late Box<dynamic> _box;
+  late Box<LibraryMangaHiveModel> _box;
 
-  /// Initialize the Hive box for library
+  /// Initialize the Hive box for library.
+  /// Adapter registration is handled centrally by hive_registrar.g.dart.
   Future<void> init() async {
-    if (!Hive.isAdapterRegistered(1)) {
-      Hive.registerAdapter(LibraryMangaHiveModelAdapter());
-    }
-    _box = await Hive.openBox(_boxName);
+    _box = await Hive.openBox<LibraryMangaHiveModel>(_boxName);
   }
 
   @override
   Future<List<LibraryManga>> getAll() async {
     try {
-      final values = _box.values.cast<LibraryMangaHiveModel>();
-      return values.map((model) => model.toDomain()).toList();
+      return _box.values.map((model) => model.toDomain()).toList();
     } catch (e) {
       return [];
     }
@@ -40,9 +37,11 @@ class LibraryServiceImpl implements LibraryService {
   @override
   Future<LibraryManga?> getByMangaId(String mangaId) async {
     try {
-      final values = _box.values.cast<LibraryMangaHiveModel>();
-      final entries = values.where((m) => m.mangaId == mangaId);
-      return entries.isNotEmpty ? entries.first.toDomain() : null;
+      final entry = _box.values.cast<LibraryMangaHiveModel?>().firstWhere(
+        (m) => m?.mangaId == mangaId,
+        orElse: () => null,
+      );
+      return entry?.toDomain();
     } catch (e) {
       return null;
     }
@@ -50,56 +49,31 @@ class LibraryServiceImpl implements LibraryService {
 
   @override
   Future<void> add(LibraryManga manga) async {
-    try {
-      final model = LibraryMangaHiveModel.fromDomain(manga);
-      await _box.put(manga.mangaId, model);
-    } catch (e) {
-      rethrow;
-    }
+    final model = LibraryMangaHiveModel.fromDomain(manga);
+    await _box.put(manga.mangaId, model);
   }
 
   @override
   Future<void> update(LibraryManga manga) async {
-    try {
-      final model = LibraryMangaHiveModel.fromDomain(manga);
-      await _box.put(manga.mangaId, model);
-    } catch (e) {
-      rethrow;
-    }
+    final model = LibraryMangaHiveModel.fromDomain(manga);
+    await _box.put(manga.mangaId, model);
   }
 
   @override
   Future<void> remove(String mangaId) async {
-    try {
-      final values = _box.values.cast<LibraryMangaHiveModel>();
-      // Find the key by mangaId
-      final entry = values.firstWhere(
-        (m) => m.mangaId == mangaId,
-        orElse: () => null as dynamic,
-      );
-      if (entry != null) {
-        await _box.delete(entry.id);
-      }
-    } catch (e) {
-      rethrow;
-    }
+    // Since we key by mangaId in add/update, we can delete directly
+    await _box.delete(mangaId);
   }
 
   @override
   Future<void> clear() async {
-    try {
-      await _box.clear();
-    } catch (e) {
-      rethrow;
-    }
+    await _box.clear();
   }
 
   @override
   Future<bool> isMangaInLibrary(String mangaId) async {
     try {
-      final values = _box.values.cast<LibraryMangaHiveModel>();
-      final result = values.any((m) => m.mangaId == mangaId);
-      return result;
+      return _box.values.any((m) => m.mangaId == mangaId);
     } catch (e) {
       return false;
     }
