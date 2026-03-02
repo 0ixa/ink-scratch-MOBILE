@@ -3,8 +3,8 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'dashboard_screen.dart';
-import 'library_screen.dart';
 import 'profile_screen.dart';
+import '../../../manga/presentation/pages/manga_browse_page.dart';
 
 // ── Brand colors ──────────────────────────────────────────────────────────────
 const _kOrange = Color(0xFFFF6B35);
@@ -31,8 +31,6 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  /// Called by child pages to switch tabs without pushing a new route.
-  /// This is the fix for the navbar-disappearing bug.
   void switchTab(int index) => _onItemTapped(index);
 
   @override
@@ -44,9 +42,9 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      HomeScreen(onBrowseTap: () => switchTab(1)), // 0 — Home
+      HomeScreen(onBrowseTap: () => switchTab(2)), // 0 — Home
       DashboardScreen(onBrowseTap: () => switchTab(2)), // 1 — Dashboard
-      const LibraryScreen(), // 2 — Library
+      const MangaBrowsePage(), // 2 — Browse Manga
       const ProfileScreen(), // 3 — Profile
     ];
 
@@ -87,9 +85,9 @@ class _InkNavBar extends StatelessWidget {
         label: 'Dashboard',
       ),
       (
-        icon: Icons.collections_bookmark_outlined,
-        activeIcon: Icons.collections_bookmark_rounded,
-        label: 'Library',
+        icon: Icons.auto_stories_outlined,
+        activeIcon: Icons.auto_stories_rounded,
+        label: 'Browse',
       ),
       (
         icon: Icons.person_outline_rounded,
