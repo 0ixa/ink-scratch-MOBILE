@@ -5,11 +5,15 @@
 import 'package:hive_ce/hive_ce.dart';
 import 'package:ink_scratch/features/auth/data/models/auth_hive_model.dart';
 import 'package:ink_scratch/features/category/data/models/category_hive_model.dart';
+import 'package:ink_scratch/features/manga/data/models/library_manga_hive_model.dart';
+import 'package:ink_scratch/features/manga/data/models/reading_history_hive_model.dart';
 
 extension HiveRegistrar on HiveInterface {
   void registerAdapters() {
     registerAdapter(AuthHiveModelAdapter());
     registerAdapter(CategoryHiveModelAdapter());
+    registerAdapter(LibraryMangaHiveModelAdapter());
+    registerAdapter(ReadingHistoryHiveModelAdapter());
   }
 }
 
@@ -17,5 +21,7 @@ extension IsolatedHiveRegistrar on IsolatedHiveInterface {
   void registerAdapters() {
     registerAdapter(AuthHiveModelAdapter());
     registerAdapter(CategoryHiveModelAdapter());
+    registerAdapter(LibraryMangaHiveModelAdapter());
+    registerAdapter(ReadingHistoryHiveModelAdapter());
   }
 }

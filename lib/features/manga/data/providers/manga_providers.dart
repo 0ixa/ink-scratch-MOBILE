@@ -43,10 +43,8 @@ final libraryServiceProvider = FutureProvider<LibraryService>((ref) async {
 // ── Manga List Provider ───────────────────────────────────────────────────────
 // Fetches all manga from the remote datasource
 final mangaListProvider = FutureProvider<List<dynamic>>((ref) async {
-  final repository = ref.watch(mangaRepositoryProvider);
-  // Adjust this to match your actual repository method
-  // This is a placeholder - update with your actual method name
-  return []; // Replace with actual repository call
+  // TODO: Implement actual repository method to fetch all manga
+  return [];
 });
 
 // ── Reading History Provider ───────────────────────────────────────────────────
@@ -61,7 +59,7 @@ final readingHistoryProvider =
       );
     });
 
-// ── Library Notifier (needed for remove) ──────────────────────────────────────
+// ── Library Notifier (needed for add/remove operations) ───────────────────────
 class LibraryNotifier extends AsyncNotifier<List<LibraryManga>> {
   @override
   Future<List<LibraryManga>> build() async {

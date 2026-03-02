@@ -1,39 +1,27 @@
 // lib/features/manga/data/services/reading_history_service_impl.dart
 
-import 'package:hive/hive.dart';
+import 'package:hive_ce_flutter/hive_flutter.dart';
 import '../../domain/entities/reading_history_entry.dart';
 import '../../domain/services/reading_history_service.dart';
+import '../models/reading_history_hive_model.dart';
 
 class ReadingHistoryServiceImpl implements ReadingHistoryService {
   static const String _boxName = 'reading_history';
   late Box<dynamic> _box;
 
+  /// Initialize the Hive box for reading history
   Future<void> init() async {
+    if (!Hive.isAdapterRegistered(0)) {
+      Hive.registerAdapter(ReadingHistoryHiveModelAdapter());
+    }
     _box = await Hive.openBox(_boxName);
   }
 
   @override
   Future<List<ReadingHistoryEntry>> getAll() async {
     try {
-      final entries = _box.values.cast<Map<dynamic, dynamic>>().map((map) {
-        return ReadingHistoryEntry(
-          id: map['id'] as String,
-          mangaId: map['mangaId'] as String,
-          title: map['title'] as String,
-          author: map['author'] as String,
-          coverImage: map['coverImage'] as String?,
-          chapterNumber: map['chapterNumber'] as int?,
-          chapterTitle: map['chapterTitle'] as String?,
-          progress: (map['progress'] as num?)?.toDouble() ?? 0.0,
-          lastReadAt: map['lastReadAt'] != null
-              ? DateTime.parse(map['lastReadAt'] as String)
-              : null,
-          createdAt: map['createdAt'] != null
-              ? DateTime.parse(map['createdAt'] as String)
-              : null,
-        );
-      }).toList();
-      return entries;
+      final values = _box.values.cast<ReadingHistoryHiveModel>();
+      return values.map((model) => model.toDomain()).toList();
     } catch (e) {
       return [];
     }
@@ -42,24 +30,8 @@ class ReadingHistoryServiceImpl implements ReadingHistoryService {
   @override
   Future<ReadingHistoryEntry?> getById(String id) async {
     try {
-      final map = _box.get(id) as Map<dynamic, dynamic>?;
-      if (map == null) return null;
-      return ReadingHistoryEntry(
-        id: map['id'] as String,
-        mangaId: map['mangaId'] as String,
-        title: map['title'] as String,
-        author: map['author'] as String,
-        coverImage: map['coverImage'] as String?,
-        chapterNumber: map['chapterNumber'] as int?,
-        chapterTitle: map['chapterTitle'] as String?,
-        progress: (map['progress'] as num?)?.toDouble() ?? 0.0,
-        lastReadAt: map['lastReadAt'] != null
-            ? DateTime.parse(map['lastReadAt'] as String)
-            : null,
-        createdAt: map['createdAt'] != null
-            ? DateTime.parse(map['createdAt'] as String)
-            : null,
-      );
+      final model = _box.get(id);
+      return model?.toDomain();
     } catch (e) {
       return null;
     }
@@ -68,11 +40,9 @@ class ReadingHistoryServiceImpl implements ReadingHistoryService {
   @override
   Future<ReadingHistoryEntry?> getByMangaId(String mangaId) async {
     try {
-      final entries = await getAll();
-      return entries.firstWhere(
-        (e) => e.mangaId == mangaId,
-        orElse: () => null as ReadingHistoryEntry,
-      );
+      final values = _box.values.cast<ReadingHistoryHiveModel>();
+      final entries = values.where((m) => m.mangaId == mangaId);
+      return entries.isNotEmpty ? entries.first.toDomain() : null;
     } catch (e) {
       return null;
     }
@@ -81,18 +51,8 @@ class ReadingHistoryServiceImpl implements ReadingHistoryService {
   @override
   Future<void> add(ReadingHistoryEntry entry) async {
     try {
-      await _box.put(entry.id, {
-        'id': entry.id,
-        'mangaId': entry.mangaId,
-        'title': entry.title,
-        'author': entry.author,
-        'coverImage': entry.coverImage,
-        'chapterNumber': entry.chapterNumber,
-        'chapterTitle': entry.chapterTitle,
-        'progress': entry.progress,
-        'lastReadAt': entry.lastReadAt?.toIso8601String(),
-        'createdAt': entry.createdAt?.toIso8601String(),
-      });
+      final model = ReadingHistoryHiveModel.fromDomain(entry);
+      await _box.put(entry.id, model);
     } catch (e) {
       rethrow;
     }
@@ -101,18 +61,8 @@ class ReadingHistoryServiceImpl implements ReadingHistoryService {
   @override
   Future<void> update(ReadingHistoryEntry entry) async {
     try {
-      await _box.put(entry.id, {
-        'id': entry.id,
-        'mangaId': entry.mangaId,
-        'title': entry.title,
-        'author': entry.author,
-        'coverImage': entry.coverImage,
-        'chapterNumber': entry.chapterNumber,
-        'chapterTitle': entry.chapterTitle,
-        'progress': entry.progress,
-        'lastReadAt': entry.lastReadAt?.toIso8601String(),
-        'createdAt': entry.createdAt?.toIso8601String(),
-      });
+      final model = ReadingHistoryHiveModel.fromDomain(entry);
+      await _box.put(entry.id, model);
     } catch (e) {
       rethrow;
     }
