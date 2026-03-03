@@ -83,7 +83,7 @@ class HomeScreen extends ConsumerWidget {
                   child: historyAsync.when(
                     loading: () =>
                         const _SectionSkeleton(label: 'CONTINUE READING'),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
                     data: (history) {
                       if (history.isEmpty) return const SizedBox.shrink();
                       return _ContinueReadingSection(
@@ -98,7 +98,7 @@ class HomeScreen extends ConsumerWidget {
                 SliverToBoxAdapter(
                   child: libraryAsync.when(
                     loading: () => const _SectionSkeleton(label: 'MY LIBRARY'),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
                     data: (library) {
                       if (library.isEmpty) return const SizedBox.shrink();
                       return _LibrarySection(
@@ -159,7 +159,7 @@ class _ContinueReadingSection extends StatelessWidget {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: history.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (context, i) => _HistoryCard(entry: history[i]),
             ),
           ),
@@ -346,7 +346,7 @@ class _LibrarySection extends StatelessWidget {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: library.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (context, i) => _LibraryCard(manga: library[i]),
             ),
           ),
@@ -418,7 +418,7 @@ class _CoverWidget extends StatelessWidget {
       return Image.network(
         src!,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _Fallback(color: _fallback),
+        errorBuilder: (_, _, _) => _Fallback(color: _fallback),
       );
     }
     return _Fallback(color: _fallback);
@@ -478,8 +478,8 @@ class _SectionSkeleton extends StatelessWidget {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: 4,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (_, __) => _SkeletonCard(),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (_, _) => _SkeletonCard(),
             ),
           ),
         ],

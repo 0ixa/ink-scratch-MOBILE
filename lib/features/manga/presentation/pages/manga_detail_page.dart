@@ -84,7 +84,6 @@ class _MangaDetailPageState extends ConsumerState<MangaDetailPage> {
       final manga = results[0] as MangaEntity;
       final chapters = results[1] as List<ChapterEntity>;
 
-      // Check library status
       final libNotifier = ref.read(libraryProvider.notifier);
       final inLib = await libNotifier.isMangaInLibrary(manga.id);
 
@@ -196,10 +195,8 @@ class _DetailBody extends StatelessWidget {
       backgroundColor: _kInk,
       body: Stack(
         children: [
-          // Ambient glows
           Positioned(top: -80, left: -60, child: _glow(_kOrange, 360, 0.18)),
           Positioned(bottom: 100, right: -60, child: _glow(_kRed, 280, 0.12)),
-          // Halftone
           Opacity(
             opacity: 0.025,
             child: SizedBox.expand(child: CustomPaint(painter: _DotPainter())),
@@ -208,7 +205,6 @@ class _DetailBody extends StatelessWidget {
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // ── Hero ──────────────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: _Hero(
                   manga: manga,
@@ -227,12 +223,10 @@ class _DetailBody extends StatelessWidget {
                 ),
               ),
 
-              // ── Stats bar ─────────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: _StatsBar(manga: manga, chapterCount: chapters.length),
               ),
 
-              // ── Tabs ──────────────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: _TabBar(
                   tab: tab,
@@ -241,7 +235,6 @@ class _DetailBody extends StatelessWidget {
                 ),
               ),
 
-              // ── Tab content ───────────────────────────────────────────────
               if (tab == _Tab.chapters)
                 _ChaptersSliver(
                   chapters: reversed,
@@ -310,7 +303,6 @@ class _Hero extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Blurred cover background
           if (manga.coverImage.isNotEmpty)
             Positioned.fill(
               child: Image.network(
@@ -318,10 +310,9 @@ class _Hero extends StatelessWidget {
                 fit: BoxFit.cover,
                 color: Colors.black.withValues(alpha: 0.75),
                 colorBlendMode: BlendMode.darken,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
-          // Gradient overlay
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -344,7 +335,6 @@ class _Hero extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Back button
                 GestureDetector(
                   onTap: () => Navigator.of(context).pop(),
                   child: Row(
@@ -368,11 +358,9 @@ class _Hero extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // Cover + info row
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    // Cover
                     _CoverImage(
                       src: manga.coverImage,
                       title: manga.title,
@@ -380,12 +368,10 @@ class _Hero extends StatelessWidget {
                     ),
                     const SizedBox(width: 16),
 
-                    // Info
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Eyebrow
                           Row(
                             children: [
                               Container(width: 16, height: 2, color: _kOrange),
@@ -403,7 +389,6 @@ class _Hero extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
 
-                          // Genre + status chips
                           Wrap(
                             spacing: 5,
                             runSpacing: 4,
@@ -416,7 +401,6 @@ class _Hero extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
 
-                          // Title
                           Text(
                             manga.title,
                             style: const TextStyle(
@@ -429,11 +413,9 @@ class _Hero extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
 
-                          // Author / artist / year
                           _MetaRow(manga: manga),
                           const SizedBox(height: 8),
 
-                          // Rating
                           if (manga.rating > 0)
                             _RatingRow(rating: manga.rating),
                         ],
@@ -443,7 +425,6 @@ class _Hero extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // Description (3 lines max)
                 if (manga.description.isNotEmpty)
                   Text(
                     manga.description,
@@ -458,7 +439,6 @@ class _Hero extends StatelessWidget {
                   ),
                 const SizedBox(height: 20),
 
-                // Action buttons
                 _ActionButtons(
                   first: first,
                   latest: latest,
@@ -477,7 +457,7 @@ class _Hero extends StatelessWidget {
   }
 }
 
-// ── Meta row (author / artist / year) ────────────────────────────────────────
+// ── Meta row ──────────────────────────────────────────────────────────────────
 class _MetaRow extends StatelessWidget {
   final MangaEntity manga;
   const _MetaRow({required this.manga});
@@ -849,7 +829,7 @@ class _TabBtn extends StatelessWidget {
 // CHAPTERS SLIVER
 // ─────────────────────────────────────────────────────────────────────────────
 class _ChaptersSliver extends StatelessWidget {
-  final List<ChapterEntity> chapters; // already reversed (newest first)
+  final List<ChapterEntity> chapters;
   final ValueChanged<String> onReadChapter;
 
   const _ChaptersSliver({required this.chapters, required this.onReadChapter});
@@ -936,7 +916,6 @@ class _ChapterRowState extends State<_ChapterRow> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: widget.onTap,
-      // FIX: unnecessary_underscores — use single _ instead of __
       onTapDown: (_) => setState(() => _hovered = true),
       onTapUp: (_) => setState(() => _hovered = false),
       onTapCancel: () => setState(() => _hovered = false),
@@ -955,7 +934,6 @@ class _ChapterRowState extends State<_ChapterRow> {
         ),
         child: Row(
           children: [
-            // Chapter number badge
             Container(
               width: 42,
               height: 42,
@@ -993,7 +971,6 @@ class _ChapterRowState extends State<_ChapterRow> {
             ),
             const SizedBox(width: 14),
 
-            // Title + date
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1055,7 +1032,6 @@ class _ChapterRowState extends State<_ChapterRow> {
               ),
             ),
 
-            // Arrow
             Icon(
               Icons.arrow_forward_rounded,
               size: 16,
@@ -1096,7 +1072,6 @@ class _AboutTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Column(
         children: [
-          // Synopsis card
           _Card(
             label: 'SYNOPSIS',
             child: Text(
@@ -1113,7 +1088,6 @@ class _AboutTab extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // Details grid
           _Card(
             label: 'DETAILS',
             child: Wrap(
@@ -1164,7 +1138,6 @@ class _AboutTab extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // Genres
           if (manga.genre.isNotEmpty)
             _Card(
               label: 'GENRES',
@@ -1298,7 +1271,7 @@ class _CoverImageState extends State<_CoverImage> {
           ? Image.network(
               widget.src,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) {
+              errorBuilder: (_, _, _) {
                 WidgetsBinding.instance.addPostFrameCallback(
                   (_) => setState(() => _err = true),
                 );
@@ -1400,7 +1373,6 @@ class _DotPainter extends CustomPainter {
     }
   }
 
-  // FIX: unnecessary_underscores — use single _ instead of __
   @override
   bool shouldRepaint(covariant CustomPainter _) => false;
 }

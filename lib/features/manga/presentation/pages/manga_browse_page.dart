@@ -243,7 +243,6 @@ class _HalftonePainter extends CustomPainter {
     }
   }
 
-  // FIX: unnecessary_underscores — use single _ instead of __
   @override
   bool shouldRepaint(covariant CustomPainter _) => false;
 }
@@ -872,7 +871,7 @@ class _MangaCard extends StatelessWidget {
                       ? Image.network(
                           manga.coverImage,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
+                          errorBuilder: (_, _, _) =>
                               _FallbackCover(color: _coverFallback()),
                         )
                       : _FallbackCover(color: _coverFallback()),
@@ -1335,7 +1334,6 @@ class _Pagination extends StatelessWidget {
             onTap: () => onPageChanged(page - 1),
           ),
           const SizedBox(width: 8),
-          // FIX: unnecessary_to_list_in_spreads — removed .toList() from spread
           ..._visiblePages.map((pageNum) {
             return Padding(
               padding: const EdgeInsets.only(right: 4),

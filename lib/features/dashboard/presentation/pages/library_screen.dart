@@ -300,10 +300,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                         child: _ErrorBox(message: e.toString()),
                       ),
                       data: (library) {
-                        if (library.isEmpty)
+                        if (library.isEmpty) {
                           return SliverToBoxAdapter(child: _EmptyLibrary());
+                        }
                         final filtered = _applyFilters(library);
-                        if (filtered.isEmpty)
+                        if (filtered.isEmpty) {
                           return SliverToBoxAdapter(
                             child: _NoResults(
                               onClear: () => setState(() {
@@ -313,6 +314,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                               }),
                             ),
                           );
+                        }
                         return _isGrid
                             ? _buildGrid(filtered)
                             : _buildList(filtered);
@@ -361,7 +363,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     });
   }
 
-  // ✅ FIX: 2 columns instead of 3 — much more readable on mobile
   SliverGrid _buildGrid(List<LibraryManga> items) {
     return SliverGrid(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -401,7 +402,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      // ✅ FIX: match the 2-col layout for skeleton too
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         childAspectRatio: 0.62,
@@ -662,7 +662,6 @@ class _HeroStats extends StatelessWidget {
             ],
           ),
         ),
-        // Stats row — 4 equal columns
         Container(
           decoration: const BoxDecoration(
             color: Color(0x4C000000),
@@ -728,7 +727,7 @@ class _Stat extends StatelessWidget {
   }
 }
 
-// ── Grid card — 2 column, mobile friendly ────────────────────────────────────
+// ── Grid card ─────────────────────────────────────────────────────────────────
 class _GridCard extends StatefulWidget {
   final LibraryManga item;
   final VoidCallback onTap;
@@ -755,7 +754,6 @@ class _GridCardState extends State<_GridCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cover — taller for 2-col layout
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -767,7 +765,6 @@ class _GridCardState extends State<_GridCard> {
                 fit: StackFit.expand,
                 children: [
                   _Cover(src: m.coverImage, title: m.title),
-                  // Gradient overlay at bottom
                   Positioned.fill(
                     child: Container(
                       decoration: const BoxDecoration(
@@ -780,7 +777,6 @@ class _GridCardState extends State<_GridCard> {
                       ),
                     ),
                   ),
-                  // Remove button (long-press)
                   if (_showRemove)
                     Positioned(
                       top: 8,
@@ -807,7 +803,6 @@ class _GridCardState extends State<_GridCard> {
                         ),
                       ),
                     ),
-                  // Status badge bottom-left
                   Positioned(
                     bottom: 8,
                     left: 8,
@@ -834,7 +829,6 @@ class _GridCardState extends State<_GridCard> {
                       ),
                     ),
                   ),
-                  // Rating badge bottom-right
                   if (m.rating > 0)
                     Positioned(
                       bottom: 8,
@@ -863,7 +857,6 @@ class _GridCardState extends State<_GridCard> {
             ),
           ),
           const SizedBox(height: 8),
-          // Title
           Text(
             m.title,
             maxLines: 2,
@@ -876,7 +869,6 @@ class _GridCardState extends State<_GridCard> {
             ),
           ),
           const SizedBox(height: 2),
-          // Author + time
           Row(
             children: [
               Expanded(
@@ -901,7 +893,6 @@ class _GridCardState extends State<_GridCard> {
               ),
             ],
           ),
-          // Long-press hint (shown when remove overlay is visible)
           if (_showRemove)
             Padding(
               padding: const EdgeInsets.only(top: 4),
@@ -920,7 +911,7 @@ class _GridCardState extends State<_GridCard> {
   }
 }
 
-// ── List row — bigger cover, swipe-friendly ───────────────────────────────────
+// ── List row ──────────────────────────────────────────────────────────────────
 class _ListRow extends StatelessWidget {
   final LibraryManga item;
   final VoidCallback onTap;
@@ -948,7 +939,6 @@ class _ListRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ FIX: bigger cover — 64×88 instead of 48×64
             Container(
               width: 64,
               height: 88,
@@ -989,7 +979,6 @@ class _ListRow extends StatelessWidget {
                     spacing: 6,
                     runSpacing: 4,
                     children: [
-                      // Status
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -1014,7 +1003,6 @@ class _ListRow extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // Genres
                       ...genres.map(
                         (g) => Container(
                           padding: const EdgeInsets.symmetric(
@@ -1042,7 +1030,6 @@ class _ListRow extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  // Bottom row: time + remove button
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -1486,21 +1473,6 @@ class _DotPainter extends CustomPainter {
       for (double y = 0; y < size.height; y += 24) {
         canvas.drawCircle(Offset(x, y), 1, p);
       }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter _) => false;
-}
-
-class _DiagPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = _kOrange.withValues(alpha: 0.8)
-      ..strokeWidth = 1;
-    for (double x = -size.height; x < size.width + size.height; x += 61) {
-      canvas.drawLine(Offset(x, 0), Offset(x + size.height, size.height), p);
     }
   }
 
