@@ -1,5 +1,3 @@
-// lib/features/dashboard/presentation/pages/dashboard_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +5,7 @@ import 'dashboard_screen.dart';
 import 'library_screen.dart';
 import 'profile_screen.dart';
 import '../../../manga/presentation/pages/manga_browse_page.dart';
+import '../../../manga/data/providers/manga_providers.dart';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const _kOrange = Color(0xFFFF6B35);
@@ -23,9 +22,22 @@ class DashboardPage extends ConsumerStatefulWidget {
 
 class _DashboardPageState extends ConsumerState<DashboardPage> {
   int _currentIndex = 0;
+  int _prevIndex = 0;
 
-  void _switchToBrowse() => setState(() => _currentIndex = 1);
-  void _switchToLibrary() => setState(() => _currentIndex = 2);
+  void _switchToBrowse() => _onTabTap(1);
+  void _switchToLibrary() => _onTabTap(2);
+
+  void _onTabTap(int index) {
+    // Invalidate library every time the user taps the Library tab
+    // This ensures fresh data after login or after adding/removing manga
+    if (index == 2 && _prevIndex != 2) {
+      ref.invalidate(libraryProvider);
+    }
+    setState(() {
+      _prevIndex = _currentIndex;
+      _currentIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +53,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       body: IndexedStack(index: _currentIndex, children: screens),
       bottomNavigationBar: _BottomNav(
         currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+        onTap: _onTabTap,
       ),
     );
   }

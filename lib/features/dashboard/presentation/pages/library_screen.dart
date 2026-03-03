@@ -61,6 +61,16 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   bool _removing = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Refresh every time this screen mounts so we always have
+    // up-to-date data — covers first load after login
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(libraryProvider);
+    });
+  }
+
+  @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
@@ -183,7 +193,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                             child: ListView(
                               scrollDirection: Axis.horizontal,
                               children: [
-                                // Filter pills
                                 ..._Filter.values.map((f) {
                                   const labels = {
                                     _Filter.all: 'All',

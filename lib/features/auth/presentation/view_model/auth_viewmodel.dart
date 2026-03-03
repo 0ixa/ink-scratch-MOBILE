@@ -18,12 +18,17 @@ class AuthViewModel extends StateNotifier<AuthState> {
   final UpdateProfileUseCase _updateProfileUseCase;
   final AuthRepository _authRepository;
 
+  /// Called after login/register (true) or logout (false).
+  /// Used by the provider to invalidate library + history without a self-cycle.
+  final void Function(bool isAuthenticated)? onAuthChanged;
+
   AuthViewModel({
     required LoginUseCase loginUseCase,
     required RegisterUseCase registerUseCase,
     required LogoutUseCase logoutUseCase,
     required UpdateProfileUseCase updateProfileUseCase,
     required AuthRepository authRepository,
+    this.onAuthChanged,
   }) : _loginUseCase = loginUseCase,
        _registerUseCase = registerUseCase,
        _logoutUseCase = logoutUseCase,
@@ -51,6 +56,8 @@ class AuthViewModel extends StateNotifier<AuthState> {
         currentUser: authEntity,
         error: null,
       );
+      // Invalidate library + history so they re-fetch with the new token
+      onAuthChanged?.call(true);
     } on DioException catch (e) {
       state = state.copyWith(isLoading: false, error: e.error.toString());
     } catch (e) {
@@ -84,6 +91,8 @@ class AuthViewModel extends StateNotifier<AuthState> {
         currentUser: authEntity,
         error: null,
       );
+      // Invalidate library + history so they re-fetch with the new token
+      onAuthChanged?.call(true);
     } on DioException catch (e) {
       state = state.copyWith(isLoading: false, error: e.error.toString());
     } catch (e) {
@@ -101,6 +110,8 @@ class AuthViewModel extends StateNotifier<AuthState> {
         currentUser: null,
         error: null,
       );
+      // Invalidate library + history so they clear on logout
+      onAuthChanged?.call(false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
