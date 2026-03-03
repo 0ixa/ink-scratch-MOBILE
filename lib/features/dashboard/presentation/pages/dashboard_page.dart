@@ -1,177 +1,185 @@
 // lib/features/dashboard/presentation/pages/dashboard_page.dart
 
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'dashboard_screen.dart';
 import 'library_screen.dart';
 import 'profile_screen.dart';
 import '../../../manga/presentation/pages/manga_browse_page.dart';
 
-// ── Brand colors ──────────────────────────────────────────────────────────────
+// ── Brand tokens ──────────────────────────────────────────────────────────────
 const _kOrange = Color(0xFFFF6B35);
+const _kRed = Color(0xFFE63946);
 const _kInk = Color(0xFF0A0A0F);
-const _kInk2 = Color(0xFF111118);
+const _kBorder = Color(0x14FFFFFF);
 
-class DashboardPage extends StatefulWidget {
+class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
 
   @override
-  State<DashboardPage> createState() => _DashboardPageState();
+  ConsumerState<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
-  int _selectedIndex = 0;
-  final PageController _pageController = PageController();
+class _DashboardPageState extends ConsumerState<DashboardPage> {
+  int _currentIndex = 0;
 
-  void _onItemTapped(int index) {
-    setState(() => _selectedIndex = index);
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  void switchTab(int index) => _onItemTapped(index);
-
-  // Library is page index 4 — hidden from navbar, shown as sub-page of Profile
-  void _goToLibrary() => _onItemTapped(4);
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
+  void _switchToBrowse() => setState(() => _currentIndex = 1);
+  void _switchToLibrary() => setState(() => _currentIndex = 2);
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      HomeScreen(onBrowseTap: () => switchTab(2)), // 0 — Home
-      DashboardScreen(onBrowseTap: () => switchTab(2)), // 1 — Dashboard
-      const MangaBrowsePage(), // 2 — Browse Manga
-      ProfileScreen(onLibraryTap: _goToLibrary), // 3 — Profile
-      const LibraryScreen(), // 4 — Library (hidden tab)
+    final screens = [
+      DashboardScreen(onBrowseTap: _switchToBrowse, onLibraryTap: null),
+      const MangaBrowsePage(),
+      const LibraryScreen(),
+      ProfileScreen(onLibraryTap: _switchToLibrary),
     ];
-
-    // Navbar highlights Profile (3) when Library (4) is active
-    final navIndex = _selectedIndex == 4 ? 3 : _selectedIndex;
 
     return Scaffold(
       backgroundColor: _kInk,
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (index) => setState(() => _selectedIndex = index),
-        physics: const NeverScrollableScrollPhysics(),
-        children: pages,
-      ),
-      bottomNavigationBar: _InkNavBar(
-        selectedIndex: navIndex,
-        onTap: _onItemTapped,
+      body: IndexedStack(index: _currentIndex, children: screens),
+      bottomNavigationBar: _BottomNav(
+        currentIndex: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
       ),
     );
   }
 }
 
-// ── Custom InkScratch Bottom Nav Bar ──────────────────────────────────────────
-class _InkNavBar extends StatelessWidget {
-  final int selectedIndex;
+// ── Bottom Navigation Bar ─────────────────────────────────────────────────────
+class _BottomNav extends StatelessWidget {
+  final int currentIndex;
   final ValueChanged<int> onTap;
 
-  const _InkNavBar({required this.selectedIndex, required this.onTap});
+  const _BottomNav({required this.currentIndex, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      (
-        icon: Icons.home_outlined,
-        activeIcon: Icons.home_rounded,
-        label: 'Home',
-      ),
-      (
-        icon: Icons.dashboard_outlined,
-        activeIcon: Icons.dashboard_rounded,
-        label: 'Dashboard',
-      ),
-      (
-        icon: Icons.auto_stories_outlined,
-        activeIcon: Icons.auto_stories_rounded,
-        label: 'Browse',
-      ),
-      (
-        icon: Icons.person_outline_rounded,
-        activeIcon: Icons.person_rounded,
-        label: 'Profile',
-      ),
-    ];
-
     return Container(
       decoration: BoxDecoration(
-        color: _kInk2,
-        border: const Border(top: BorderSide(color: Colors.white10)),
+        color: _kInk,
+        border: const Border(top: BorderSide(color: _kBorder)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
+            color: Colors.black.withValues(alpha: 0.4),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
         ],
       ),
       child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 64,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
-            children: List.generate(items.length, (i) {
-              final item = items[i];
-              final isActive = selectedIndex == i;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => onTap(i),
-                  behavior: HitTestBehavior.opaque,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isActive
-                              ? _kOrange.withValues(alpha: 0.12)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          isActive ? item.activeIcon : item.icon,
-                          size: 22,
-                          color: isActive
-                              ? _kOrange
-                              : Colors.white.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 200),
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: isActive
-                              ? FontWeight.w700
-                              : FontWeight.w400,
-                          color: isActive
-                              ? _kOrange
-                              : Colors.white.withValues(alpha: 0.3),
-                          letterSpacing: isActive ? 0.5 : 0,
-                        ),
-                        child: Text(item.label),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(
+                icon: Icons.home_outlined,
+                activeIcon: Icons.home_rounded,
+                label: 'Home',
+                isActive: currentIndex == 0,
+                onTap: () => onTap(0),
+              ),
+              _NavItem(
+                icon: Icons.explore_outlined,
+                activeIcon: Icons.explore_rounded,
+                label: 'Browse',
+                isActive: currentIndex == 1,
+                onTap: () => onTap(1),
+              ),
+              _NavItem(
+                icon: Icons.collections_bookmark_outlined,
+                activeIcon: Icons.collections_bookmark_rounded,
+                label: 'Library',
+                isActive: currentIndex == 2,
+                onTap: () => onTap(2),
+              ),
+              _NavItem(
+                icon: Icons.person_outline_rounded,
+                activeIcon: Icons.person_rounded,
+                label: 'Profile',
+                isActive: currentIndex == 3,
+                onTap: () => onTap(3),
+              ),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _NavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: 64,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Active indicator bar
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: isActive ? 20 : 0,
+              height: 2,
+              margin: const EdgeInsets.only(bottom: 4),
+              decoration: BoxDecoration(
+                gradient: isActive
+                    ? const LinearGradient(colors: [_kOrange, _kRed])
+                    : null,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Icon
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: isActive
+                  ? ShaderMask(
+                      key: const ValueKey('active'),
+                      shaderCallback: (b) => const LinearGradient(
+                        colors: [_kOrange, _kRed],
+                      ).createShader(b),
+                      child: Icon(activeIcon, color: Colors.white, size: 24),
+                    )
+                  : Icon(
+                      key: const ValueKey('inactive'),
+                      icon,
+                      color: Colors.white.withValues(alpha: 0.3),
+                      size: 24,
+                    ),
+            ),
+            const SizedBox(height: 3),
+            // Label
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+                color: isActive
+                    ? _kOrange
+                    : Colors.white.withValues(alpha: 0.3),
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
         ),
       ),
     );

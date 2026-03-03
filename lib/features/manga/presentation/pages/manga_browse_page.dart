@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/manga_entity.dart';
 import '../viewmodel/manga_browse_viewmodel.dart';
+import '../../../../core/utils/navigation_utils.dart';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const _kOrange = Color(0xFFFF6B35);
@@ -235,17 +236,15 @@ class _HalftonePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = _kOrange;
-    const spacing = 24.0;
-    const radius = 1.0;
-    for (double x = 0; x < size.width; x += spacing) {
-      for (double y = 0; y < size.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), radius, paint);
+    for (double x = 0; x < size.width; x += 24) {
+      for (double y = 0; y < size.height; y += 24) {
+        canvas.drawCircle(Offset(x, y), 1.0, paint);
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter _) => false;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -630,7 +629,6 @@ class _GenrePill extends StatelessWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
-
   const _GenrePill({
     required this.label,
     required this.active,
@@ -683,7 +681,6 @@ class _StatusPill extends StatelessWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
-
   const _StatusPill({
     required this.label,
     required this.active,
@@ -839,7 +836,7 @@ class _MangaGrid extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MANGA CARD
+// MANGA CARD  ← PATCHED: onTap now navigates to MangaDetailPage
 // ─────────────────────────────────────────────────────────────────────────────
 class _MangaCard extends StatelessWidget {
   final MangaEntity manga;
@@ -860,9 +857,8 @@ class _MangaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        // TODO: Navigate to manga detail — context.push('/manga/${manga.id}')
-      },
+      // ✅ PATCHED: navigate to manga detail
+      onTap: () => AppNavigator.toMangaDetail(context, manga.id),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -876,7 +872,7 @@ class _MangaCard extends StatelessWidget {
                       ? Image.network(
                           manga.coverImage,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
+                          errorBuilder: (_, __, ___) =>
                               _FallbackCover(color: _coverFallback()),
                         )
                       : _FallbackCover(color: _coverFallback()),
@@ -1339,29 +1335,29 @@ class _Pagination extends StatelessWidget {
             onTap: () => onPageChanged(page - 1),
           ),
           const SizedBox(width: 8),
-          ..._visiblePages.map(
-            (p) => Padding(
+          ..._visiblePages.map((pageNum) {
+            return Padding(
               padding: const EdgeInsets.only(right: 4),
               child: GestureDetector(
-                onTap: () => onPageChanged(p),
+                onTap: () => onPageChanged(pageNum),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    gradient: p == page
+                    gradient: pageNum == page
                         ? const LinearGradient(colors: [_kOrange, _kRed])
                         : null,
-                    color: p == page
+                    color: pageNum == page
                         ? null
                         : Colors.white.withValues(alpha: 0.03),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: p == page
+                      color: pageNum == page
                           ? Colors.transparent
                           : Colors.white.withValues(alpha: 0.07),
                     ),
-                    boxShadow: p == page
+                    boxShadow: pageNum == page
                         ? [
                             BoxShadow(
                               color: _kOrange.withValues(alpha: 0.3),
@@ -1372,9 +1368,9 @@ class _Pagination extends StatelessWidget {
                   ),
                   alignment: Alignment.center,
                   child: Text(
-                    '$p',
+                    '$pageNum',
                     style: TextStyle(
-                      color: p == page
+                      color: pageNum == page
                           ? Colors.white
                           : Colors.white.withValues(alpha: 0.4),
                       fontSize: 13,
@@ -1383,8 +1379,8 @@ class _Pagination extends StatelessWidget {
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          }).toList(),
           const SizedBox(width: 4),
           _PageBtn(
             label: 'Next →',

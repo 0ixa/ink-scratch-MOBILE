@@ -31,7 +31,13 @@ String _greeting() {
 // ─────────────────────────────────────────────────────────────────────────────
 class DashboardScreen extends ConsumerWidget {
   final VoidCallback onBrowseTap;
-  const DashboardScreen({super.key, required this.onBrowseTap});
+  final VoidCallback? onLibraryTap;
+
+  const DashboardScreen({
+    super.key,
+    required this.onBrowseTap,
+    this.onLibraryTap,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

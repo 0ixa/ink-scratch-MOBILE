@@ -30,11 +30,12 @@ final mangaRepositoryProvider = Provider<MangaRepository>((ref) {
   return MangaRepositoryImpl(remote: datasource);
 });
 
-// ── Local Services (Hive) ─────────────────────────────────────────────────────
+// ── Local Services (Hive) — now also receive Dio for remote sync ──────────────
 final readingHistoryServiceProvider = FutureProvider<ReadingHistoryService>((
   ref,
 ) async {
-  final service = ReadingHistoryServiceImpl();
+  final dio = ref.watch(apiClientProvider).client;
+  final service = ReadingHistoryServiceImpl(dio: dio);
   await service.init();
   return service;
 });
@@ -51,7 +52,6 @@ final _sessionServiceProvider = Provider<UserSessionService>((ref) {
 });
 
 // ── Manga List Provider — fetches from backend GET /manga ─────────────────────
-// Uses repository.getAll() which returns MangaListResult; exposes .items as List<dynamic>
 final mangaListProvider = FutureProvider<List<dynamic>>((ref) async {
   final repository = ref.watch(mangaRepositoryProvider);
   final result = await repository.getAll();
@@ -59,7 +59,6 @@ final mangaListProvider = FutureProvider<List<dynamic>>((ref) async {
 });
 
 // ── Reading History Provider — fetches from backend GET /history ──────────────
-// Falls back to local Hive if not authenticated or on error.
 final readingHistoryProvider =
     FutureProvider.autoDispose<List<ReadingHistoryEntry>>((ref) async {
       final apiClient = ref.watch(apiClientProvider);
@@ -111,7 +110,7 @@ final readingHistoryProvider =
       }
     });
 
-// ── Library Notifier — fetches from backend GET /library ─────────────────────
+// ── Library Notifier ──────────────────────────────────────────────────────────
 class LibraryNotifier extends AsyncNotifier<List<LibraryManga>> {
   @override
   Future<List<LibraryManga>> build() async {
