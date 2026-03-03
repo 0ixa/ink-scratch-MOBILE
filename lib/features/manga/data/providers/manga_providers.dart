@@ -1,6 +1,5 @@
 // lib/features/manga/data/providers/manga_providers.dart
 
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/api_client_provider.dart';
 import '../../../../core/services/storage/user_session_service.dart';
@@ -13,10 +12,6 @@ import '../../domain/services/reading_history_service.dart';
 import '../../domain/services/library_service.dart';
 import '../../domain/entities/reading_history_entry.dart';
 import '../../domain/entities/library_manga.dart';
-
-// ── Helper: Dio options with Bearer token ─────────────────────────────────────
-Options _authOptions(String token) =>
-    Options(headers: {'Authorization': 'Bearer $token'});
 
 // ── Datasource ────────────────────────────────────────────────────────────────
 final mangaRemoteDatasourceProvider = Provider<MangaRemoteDatasource>((ref) {
@@ -72,10 +67,8 @@ final readingHistoryProvider =
       }
 
       try {
-        final response = await apiClient.client.get(
-          '/history',
-          options: _authOptions(token),
-        );
+        // ApiClient interceptor already injects Authorization header
+        final response = await apiClient.client.get('/history');
         final data = response.data;
         final List<dynamic> list = data is Map
             ? (data['data'] ?? data['history'] ?? [])
@@ -89,7 +82,8 @@ final readingHistoryProvider =
                 title: item['title']?.toString() ?? '',
                 author: item['author']?.toString() ?? '',
                 coverImage: item['coverImage']?.toString(),
-                chapterNumber: item['chapterNumber'] as int?,
+                // FIX: API returns doubles like 156.5 for decimal chapters
+                chapterNumber: (item['chapterNumber'] as num?)?.toInt(),
                 chapterTitle: item['chapterTitle']?.toString(),
                 progress: ((item['progress'] ?? 0) as num).toDouble(),
                 lastReadAt: item['lastReadAt'] != null
@@ -127,34 +121,25 @@ class LibraryNotifier extends AsyncNotifier<List<LibraryManga>> {
     }
 
     try {
-      final response = await apiClient.client.get(
-        '/library',
-        options: _authOptions(token),
-      );
+      // GET /api/library — ApiClient interceptor injects Authorization header
+      final response = await apiClient.client.get('/library');
       final data = response.data;
       final List<dynamic> list = data is Map
           ? (data['data'] ?? data['library'] ?? [])
           : (data ?? []);
 
       return list.map((item) {
-        final mangaData = item['manga'] ?? item;
         return LibraryManga(
           id: item['_id']?.toString() ?? item['id']?.toString() ?? '',
-          mangaId:
-              mangaData['_id']?.toString() ??
-              mangaData['id']?.toString() ??
-              item['mangaId']?.toString() ??
-              '',
-          title: mangaData['title']?.toString() ?? '',
-          author: mangaData['author']?.toString() ?? '',
-          coverImage: mangaData['coverImage']?.toString(),
-          status: mangaData['status']?.toString() ?? 'Unknown',
-          genre: List<String>.from(
-            mangaData['genre'] ?? mangaData['genres'] ?? [],
-          ),
-          rating: ((mangaData['rating'] ?? 0) as num).toDouble(),
-          addedAt: item['createdAt'] != null
-              ? DateTime.tryParse(item['createdAt'].toString())
+          mangaId: item['mangaId']?.toString() ?? '',
+          title: item['title']?.toString() ?? '',
+          author: item['author']?.toString() ?? '',
+          coverImage: item['coverImage']?.toString(),
+          status: item['status']?.toString() ?? 'Unknown',
+          genre: List<String>.from(item['genre'] ?? item['genres'] ?? []),
+          rating: ((item['rating'] ?? 0) as num).toDouble(),
+          addedAt: item['addedAt'] != null
+              ? DateTime.tryParse(item['addedAt'].toString())
               : null,
         );
       }).toList();
@@ -171,9 +156,8 @@ class LibraryNotifier extends AsyncNotifier<List<LibraryManga>> {
     return service.getAll();
   }
 
-  // ── FIXED: optimistic remove — update UI instantly, sync in background ──────
   Future<void> remove(String mangaId) async {
-    // 1. Immediately remove from local state — no loading freeze
+    // Optimistic update — remove from UI instantly
     final current = state.valueOrNull ?? [];
     state = AsyncData(current.where((m) => m.mangaId != mangaId).toList());
 
@@ -183,14 +167,11 @@ class LibraryNotifier extends AsyncNotifier<List<LibraryManga>> {
 
     if (token != null && token.isNotEmpty) {
       try {
-        await apiClient.client.delete(
-          '/library/$mangaId',
-          options: _authOptions(token),
-        );
+        // DELETE /api/library/:mangaId
+        await apiClient.client.delete('/library/$mangaId');
       } catch (e, s) {
         // ignore: avoid_print
         print('LibraryNotifier.remove error: $e\n$s');
-        // Also remove from local Hive as fallback
         final service = ref.read(libraryServiceProvider).valueOrNull;
         await service?.remove(mangaId);
       }
@@ -200,9 +181,8 @@ class LibraryNotifier extends AsyncNotifier<List<LibraryManga>> {
     }
   }
 
-  // ── FIXED: optimistic add — update UI instantly, sync in background ─────────
   Future<void> add(LibraryManga manga) async {
-    // 1. Immediately add to local state — no loading freeze
+    // Optimistic update — add to UI instantly
     final current = state.valueOrNull ?? [];
     state = AsyncData([...current, manga]);
 
@@ -212,10 +192,19 @@ class LibraryNotifier extends AsyncNotifier<List<LibraryManga>> {
 
     if (token != null && token.isNotEmpty) {
       try {
+        // FIX: correct endpoint is /library/add (not /library)
+        // FIX: backend requires mangaId + title at minimum, send all fields
         await apiClient.client.post(
-          '/library',
-          data: {'mangaId': manga.mangaId},
-          options: _authOptions(token),
+          '/library/add',
+          data: {
+            'mangaId': manga.mangaId,
+            'title': manga.title,
+            'author': manga.author,
+            'coverImage': manga.coverImage ?? '',
+            'status': manga.status,
+            'genre': manga.genre,
+            'rating': manga.rating,
+          },
         );
       } catch (e, s) {
         // ignore: avoid_print
@@ -225,10 +214,9 @@ class LibraryNotifier extends AsyncNotifier<List<LibraryManga>> {
         state = AsyncData(
           rolled.where((m) => m.mangaId != manga.mangaId).toList(),
         );
-        // Try saving locally as fallback
+        // Fallback to local storage
         final service = ref.read(libraryServiceProvider).valueOrNull;
         await service?.add(manga);
-        // Re-add from local
         final updated = state.valueOrNull ?? [];
         state = AsyncData([...updated, manga]);
       }
@@ -238,12 +226,27 @@ class LibraryNotifier extends AsyncNotifier<List<LibraryManga>> {
     }
   }
 
+  /// Checks backend directly — more reliable than trusting local state
   Future<bool> isMangaInLibrary(String mangaId) async {
+    final apiClient = ref.read(apiClientProvider);
+    final session = ref.read(_sessionServiceProvider);
+    final token = await session.getToken();
+
+    if (token != null && token.isNotEmpty) {
+      try {
+        // GET /api/library/check/:mangaId
+        final response = await apiClient.client.get('/library/check/$mangaId');
+        final data = response.data;
+        return data['data']?['inLibrary'] ?? false;
+      } catch (_) {
+        // Fall through to local state check
+      }
+    }
+
     final current = state.valueOrNull ?? [];
     return current.any((m) => m.mangaId == mangaId);
   }
 
-  // ── Manual refresh — only called explicitly (e.g. pull-to-refresh) ──────────
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() => _fetchFromBackend());
