@@ -1,9 +1,11 @@
 // lib/core/services/hive/hive_service.dart
 
-import 'package:hive_ce_flutter/hive_flutter.dart'; // ✅ was: hive_flutter/hive_flutter.dart
+import 'package:hive_ce_flutter/hive_flutter.dart';
 
 import '../../../features/auth/data/models/auth_hive_model.dart';
 import '../../../features/category/data/models/category_hive_model.dart';
+import '../../../features/manga/data/models/library_manga_hive_model.dart';
+import '../../../features/manga/data/models/reading_history_hive_model.dart';
 import '../../constants/hive_table_constant.dart';
 
 class HiveService {
@@ -14,16 +16,32 @@ class HiveService {
   Future<void> init() async {
     await Hive.initFlutter();
 
+    // ── Auth ──────────────────────────────────────────────────────────────────
     if (!Hive.isAdapterRegistered(HiveTableConstant.authTypeId)) {
       Hive.registerAdapter(AuthHiveModelAdapter());
     }
+
+    // ── Category ──────────────────────────────────────────────────────────────
     if (!Hive.isAdapterRegistered(HiveTableConstant.categoryTypeId)) {
       Hive.registerAdapter(CategoryHiveModelAdapter());
     }
 
+    // ── Library (typeId = 1) ──────────────────────────────────────────────────
+    if (!Hive.isAdapterRegistered(1)) {
+      Hive.registerAdapter(LibraryMangaHiveModelAdapter());
+    }
+
+    // ── Reading History (typeId = 5) ──────────────────────────────────────────
+    if (!Hive.isAdapterRegistered(5)) {
+      Hive.registerAdapter(ReadingHistoryHiveModelAdapter());
+    }
+
+    // ── Open boxes ────────────────────────────────────────────────────────────
     await Hive.openBox<AuthHiveModel>(HiveTableConstant.authBox);
     await Hive.openBox<CategoryHiveModel>(HiveTableConstant.categoryBox);
     await Hive.openBox(HiveTableConstant.sessionBox);
+    await Hive.openBox<LibraryMangaHiveModel>('library');
+    await Hive.openBox<ReadingHistoryHiveModel>('reading_history');
   }
 
   // ==================== Auth Methods ====================

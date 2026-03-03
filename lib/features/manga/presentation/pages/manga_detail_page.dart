@@ -936,6 +936,7 @@ class _ChapterRowState extends State<_ChapterRow> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: widget.onTap,
+      // FIX: unnecessary_underscores — use single _ instead of __
       onTapDown: (_) => setState(() => _hovered = true),
       onTapUp: (_) => setState(() => _hovered = false),
       onTapCancel: () => setState(() => _hovered = false),
@@ -1399,6 +1400,7 @@ class _DotPainter extends CustomPainter {
     }
   }
 
+  // FIX: unnecessary_underscores — use single _ instead of __
   @override
   bool shouldRepaint(covariant CustomPainter _) => false;
 }

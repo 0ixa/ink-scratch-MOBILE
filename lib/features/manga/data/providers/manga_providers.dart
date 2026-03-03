@@ -30,7 +30,7 @@ final mangaRepositoryProvider = Provider<MangaRepository>((ref) {
   return MangaRepositoryImpl(remote: datasource);
 });
 
-// ── Local Services (Hive) — now also receive Dio for remote sync ──────────────
+// ── Local Services (Hive) ─────────────────────────────────────────────────────
 final readingHistoryServiceProvider = FutureProvider<ReadingHistoryService>((
   ref,
 ) async {
@@ -51,14 +51,14 @@ final _sessionServiceProvider = Provider<UserSessionService>((ref) {
   return UserSessionService();
 });
 
-// ── Manga List Provider — fetches from backend GET /manga ─────────────────────
+// ── Manga List Provider ───────────────────────────────────────────────────────
 final mangaListProvider = FutureProvider<List<dynamic>>((ref) async {
   final repository = ref.watch(mangaRepositoryProvider);
   final result = await repository.getAll();
   return result.items;
 });
 
-// ── Reading History Provider — fetches from backend GET /history ──────────────
+// ── Reading History Provider ──────────────────────────────────────────────────
 final readingHistoryProvider =
     FutureProvider.autoDispose<List<ReadingHistoryEntry>>((ref) async {
       final apiClient = ref.watch(apiClientProvider);
@@ -171,7 +171,12 @@ class LibraryNotifier extends AsyncNotifier<List<LibraryManga>> {
     return service.getAll();
   }
 
+  // ── FIXED: optimistic remove — update UI instantly, sync in background ──────
   Future<void> remove(String mangaId) async {
+    // 1. Immediately remove from local state — no loading freeze
+    final current = state.valueOrNull ?? [];
+    state = AsyncData(current.where((m) => m.mangaId != mangaId).toList());
+
     final apiClient = ref.read(apiClientProvider);
     final session = ref.read(_sessionServiceProvider);
     final token = await session.getToken();
@@ -185,6 +190,7 @@ class LibraryNotifier extends AsyncNotifier<List<LibraryManga>> {
       } catch (e, s) {
         // ignore: avoid_print
         print('LibraryNotifier.remove error: $e\n$s');
+        // Also remove from local Hive as fallback
         final service = ref.read(libraryServiceProvider).valueOrNull;
         await service?.remove(mangaId);
       }
@@ -192,11 +198,14 @@ class LibraryNotifier extends AsyncNotifier<List<LibraryManga>> {
       final service = ref.read(libraryServiceProvider).valueOrNull;
       await service?.remove(mangaId);
     }
-
-    state = await AsyncValue.guard(() => _fetchFromBackend());
   }
 
+  // ── FIXED: optimistic add — update UI instantly, sync in background ─────────
   Future<void> add(LibraryManga manga) async {
+    // 1. Immediately add to local state — no loading freeze
+    final current = state.valueOrNull ?? [];
+    state = AsyncData([...current, manga]);
+
     final apiClient = ref.read(apiClientProvider);
     final session = ref.read(_sessionServiceProvider);
     final token = await session.getToken();
@@ -211,20 +220,33 @@ class LibraryNotifier extends AsyncNotifier<List<LibraryManga>> {
       } catch (e, s) {
         // ignore: avoid_print
         print('LibraryNotifier.add error: $e\n$s');
+        // Rollback optimistic update on failure
+        final rolled = state.valueOrNull ?? [];
+        state = AsyncData(
+          rolled.where((m) => m.mangaId != manga.mangaId).toList(),
+        );
+        // Try saving locally as fallback
         final service = ref.read(libraryServiceProvider).valueOrNull;
         await service?.add(manga);
+        // Re-add from local
+        final updated = state.valueOrNull ?? [];
+        state = AsyncData([...updated, manga]);
       }
     } else {
       final service = ref.read(libraryServiceProvider).valueOrNull;
       await service?.add(manga);
     }
-
-    state = await AsyncValue.guard(() => _fetchFromBackend());
   }
 
   Future<bool> isMangaInLibrary(String mangaId) async {
     final current = state.valueOrNull ?? [];
     return current.any((m) => m.mangaId == mangaId);
+  }
+
+  // ── Manual refresh — only called explicitly (e.g. pull-to-refresh) ──────────
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() => _fetchFromBackend());
   }
 }
 

@@ -1,18 +1,11 @@
 // lib/features/dashboard/presentation/pages/library_screen.dart
-//
-// Mirrors web library page exactly:
-//   • Hero banner with stats bar (Total, Ongoing, Completed, Avg Rating)
-//   • Search + filter pills + sort dropdown + grid/list toggle
-//   • Grid view with remove ✕ button (appears on hover/long-press)
-//   • List view with "✕ Remove" button
-//   • Remove confirmation modal with manga preview
-//   • Empty state and no-results state
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../manga/data/providers/manga_providers.dart';
 import '../../../manga/domain/entities/library_manga.dart';
+import '../../../../core/utils/navigation_utils.dart';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const _kOrange = Color(0xFFFF6B35);
@@ -21,7 +14,6 @@ const _kInk = Color(0xFF0A0A0F);
 const _kCard = Color(0xFF111118);
 const _kBorder = Color(0x10FFFFFF);
 
-// ── Status colors ─────────────────────────────────────────────────────────────
 Color _statusColor(String s) {
   switch (s.toLowerCase()) {
     case 'ongoing':
@@ -35,7 +27,6 @@ Color _statusColor(String s) {
   }
 }
 
-// ── Relative time ─────────────────────────────────────────────────────────────
 String _timeAgo(DateTime? date) {
   if (date == null) return '';
   final diff = DateTime.now().difference(date).inDays;
@@ -47,7 +38,6 @@ String _timeAgo(DateTime? date) {
   return '${diff ~/ 365}y ago';
 }
 
-// ── Filter / Sort enums ───────────────────────────────────────────────────────
 enum _Filter { all, ongoing, completed, cancelled }
 
 enum _Sort { addedAt, title, rating }
@@ -67,7 +57,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   bool _isGrid = true;
   String _query = '';
 
-  // Remove confirmation
   String? _removeId;
   bool _removing = false;
 
@@ -96,7 +85,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           backgroundColor: _kInk,
           body: Stack(
             children: [
-              // Ambient glows
               Positioned(
                 top: -80,
                 left: -60,
@@ -117,13 +105,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               CustomScrollView(
                 physics: const BouncingScrollPhysics(),
                 slivers: [
-                  // ── App bar ────────────────────────────────────────────
                   _LibAppBar(
                     isGrid: _isGrid,
                     onToggleView: () => setState(() => _isGrid = !_isGrid),
                   ),
 
-                  // ── Hero + stats bar ──────────────────────────────────
+                  // Hero + stats
                   SliverToBoxAdapter(
                     child: libraryAsync.when(
                       loading: () => const SizedBox(height: 120),
@@ -132,15 +119,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     ),
                   ),
 
-                  // ── Controls ──────────────────────────────────────────
+                  // Search + filters + sort
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                       child: Column(
                         children: [
-                          // Search
+                          // Search bar
                           Container(
-                            height: 46,
+                            height: 48,
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.04),
                               border: Border.all(
@@ -165,140 +152,147 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                   color: Colors.white.withValues(alpha: 0.3),
                                   size: 20,
                                 ),
+                                suffixIcon: _query.isNotEmpty
+                                    ? GestureDetector(
+                                        onTap: () {
+                                          _searchCtrl.clear();
+                                          setState(() => _query = '');
+                                        },
+                                        child: Icon(
+                                          Icons.close_rounded,
+                                          color: Colors.white.withValues(
+                                            alpha: 0.3,
+                                          ),
+                                          size: 18,
+                                        ),
+                                      )
+                                    : null,
                                 border: InputBorder.none,
                                 contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 12,
+                                  vertical: 14,
                                 ),
                               ),
                               onChanged: (v) => setState(() => _query = v),
                             ),
                           ),
                           const SizedBox(height: 10),
-                          // Filters + sort
-                          Row(
-                            children: [
-                              Expanded(
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    children: _Filter.values.map((f) {
-                                      const labels = {
-                                        _Filter.all: 'All',
-                                        _Filter.ongoing: 'Ongoing',
-                                        _Filter.completed: 'Completed',
-                                        _Filter.cancelled: 'Cancelled',
-                                      };
-                                      final active = _filter == f;
-                                      return GestureDetector(
-                                        onTap: () =>
-                                            setState(() => _filter = f),
-                                        child: AnimatedContainer(
-                                          duration: const Duration(
-                                            milliseconds: 180,
-                                          ),
-                                          margin: const EdgeInsets.only(
-                                            right: 8,
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: active
-                                                ? _kOrange.withValues(
-                                                    alpha: 0.12,
-                                                  )
-                                                : Colors.white.withValues(
-                                                    alpha: 0.04,
-                                                  ),
-                                            border: Border.all(
-                                              color: active
-                                                  ? _kOrange.withValues(
-                                                      alpha: 0.4,
-                                                    )
-                                                  : Colors.white.withValues(
-                                                      alpha: 0.1,
-                                                    ),
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              20,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            labels[f]!,
-                                            style: TextStyle(
-                                              color: active
-                                                  ? _kOrange
-                                                  : Colors.white.withValues(
-                                                      alpha: 0.4,
-                                                    ),
-                                              fontSize: 10,
-                                              fontFamily: 'monospace',
-                                              fontWeight: active
-                                                  ? FontWeight.w700
-                                                  : FontWeight.w400,
-                                              letterSpacing: 0.5,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Sort button → bottom sheet
-                              GestureDetector(
-                                onTap: () => _showSortSheet(context),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.04),
-                                    border: Border.all(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.1,
+
+                          // Filter pills + sort in one scrollable row
+                          SizedBox(
+                            height: 36,
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              children: [
+                                // Filter pills
+                                ..._Filter.values.map((f) {
+                                  const labels = {
+                                    _Filter.all: 'All',
+                                    _Filter.ongoing: 'Ongoing',
+                                    _Filter.completed: 'Completed',
+                                    _Filter.cancelled: 'Cancelled',
+                                  };
+                                  final active = _filter == f;
+                                  return GestureDetector(
+                                    onTap: () => setState(() => _filter = f),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 180,
                                       ),
-                                    ),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.sort_rounded,
-                                        size: 14,
-                                        color: Colors.white.withValues(
-                                          alpha: 0.45,
-                                        ),
+                                      margin: const EdgeInsets.only(right: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 8,
                                       ),
-                                      const SizedBox(width: 5),
-                                      Text(
-                                        _sortLabel(_sort),
+                                      decoration: BoxDecoration(
+                                        color: active
+                                            ? _kOrange.withValues(alpha: 0.12)
+                                            : Colors.white.withValues(
+                                                alpha: 0.04,
+                                              ),
+                                        border: Border.all(
+                                          color: active
+                                              ? _kOrange.withValues(alpha: 0.4)
+                                              : Colors.white.withValues(
+                                                  alpha: 0.1,
+                                                ),
+                                        ),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        labels[f]!,
                                         style: TextStyle(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.45,
-                                          ),
-                                          fontSize: 10,
+                                          color: active
+                                              ? _kOrange
+                                              : Colors.white.withValues(
+                                                  alpha: 0.4,
+                                                ),
+                                          fontSize: 11,
                                           fontFamily: 'monospace',
+                                          fontWeight: active
+                                              ? FontWeight.w700
+                                              : FontWeight.w400,
                                           letterSpacing: 0.5,
                                         ),
                                       ),
-                                    ],
+                                    ),
+                                  );
+                                }),
+                                // Sort pill
+                                GestureDetector(
+                                  onTap: () => _showSortSheet(context),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.04,
+                                      ),
+                                      border: Border.all(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.1,
+                                        ),
+                                      ),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.sort_rounded,
+                                          size: 13,
+                                          color: Colors.white.withValues(
+                                            alpha: 0.4,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          _sortLabel(_sort),
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.4,
+                                            ),
+                                            fontSize: 11,
+                                            fontFamily: 'monospace',
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
 
-                  // ── Content ───────────────────────────────────────────
+                  // Content
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 40),
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 48),
                     sliver: libraryAsync.when(
                       loading: () =>
                           SliverToBoxAdapter(child: _buildSkeleton()),
@@ -306,11 +300,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                         child: _ErrorBox(message: e.toString()),
                       ),
                       data: (library) {
-                        if (library.isEmpty) {
+                        if (library.isEmpty)
                           return SliverToBoxAdapter(child: _EmptyLibrary());
-                        }
                         final filtered = _applyFilters(library);
-                        if (filtered.isEmpty) {
+                        if (filtered.isEmpty)
                           return SliverToBoxAdapter(
                             child: _NoResults(
                               onClear: () => setState(() {
@@ -320,7 +313,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                               }),
                             ),
                           );
-                        }
                         return _isGrid
                             ? _buildGrid(filtered)
                             : _buildList(filtered);
@@ -333,7 +325,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           ),
         ),
 
-        // ── Remove confirmation modal ──────────────────────────────────────
         if (_removeId != null)
           _RemoveModal(
             mangaId: _removeId!,
@@ -370,18 +361,19 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     });
   }
 
+  // ✅ FIX: 2 columns instead of 3 — much more readable on mobile
   SliverGrid _buildGrid(List<LibraryManga> items) {
     return SliverGrid(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 0.52,
+        crossAxisCount: 2,
+        childAspectRatio: 0.62,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
       delegate: SliverChildBuilderDelegate(
         (context, i) => _GridCard(
           item: items[i],
-          onTap: () {}, // navigate to detail
+          onTap: () => AppNavigator.toMangaDetail(context, items[i].mangaId),
           onRemove: () => setState(() => _removeId = items[i].mangaId),
         ),
         childCount: items.length,
@@ -396,7 +388,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           padding: const EdgeInsets.only(bottom: 10),
           child: _ListRow(
             item: items[i],
-            onTap: () {},
+            onTap: () => AppNavigator.toMangaDetail(context, items[i].mangaId),
             onRemove: () => setState(() => _removeId = items[i].mangaId),
           ),
         ),
@@ -409,13 +401,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
+      // ✅ FIX: match the 2-col layout for skeleton too
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 0.52,
+        crossAxisCount: 2,
+        childAspectRatio: 0.62,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
-      itemCount: 9,
+      itemCount: 6,
       itemBuilder: (_, i) => Container(
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.04),
@@ -533,7 +526,7 @@ class _LibAppBar extends StatelessWidget {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
                 Container(
@@ -580,7 +573,7 @@ class _LibAppBar extends StatelessWidget {
                   onTap: onToggleView,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.all(7),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: _kOrange.withValues(alpha: 0.1),
                       border: Border.all(
@@ -613,103 +606,79 @@ class _HeroStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ongoingCount = library.where((m) => m.status == 'Ongoing').length;
-    final completedCount = library.where((m) => m.status == 'Completed').length;
+    final ongoingCount = library
+        .where((m) => m.status.toLowerCase() == 'ongoing')
+        .length;
+    final completedCount = library
+        .where((m) => m.status.toLowerCase() == 'completed')
+        .length;
     final avgRating = library.isEmpty
         ? 0.0
         : library.fold<double>(0, (s, m) => s + m.rating) / library.length;
 
-    return Stack(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Positioned.fill(
-          child: Opacity(
-            opacity: 0.03,
-            child: CustomPaint(painter: _DiagPainter()),
-          ),
-        ),
-        Positioned(
-          top: 8,
-          right: -20,
-          child: Text(
-            'LIBRARY',
-            style: TextStyle(
-              fontSize: 70,
-              fontWeight: FontWeight.w900,
-              color: _kOrange.withValues(alpha: 0.04),
-              letterSpacing: 4,
-            ),
-          ),
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 32, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Container(width: 20, height: 2, color: _kOrange),
-                      const SizedBox(width: 8),
-                      Text(
-                        'MY LIBRARY',
-                        style: TextStyle(
-                          color: _kOrange.withValues(alpha: 0.6),
-                          fontSize: 9,
-                          fontFamily: 'monospace',
-                          letterSpacing: 2,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'My Library',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 40,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
+                  Container(width: 20, height: 2, color: _kOrange),
+                  const SizedBox(width: 8),
                   Text(
-                    '${library.length} series saved · your personal reading list',
+                    'MY LIBRARY',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      fontSize: 10,
+                      color: _kOrange.withValues(alpha: 0.6),
+                      fontSize: 9,
                       fontFamily: 'monospace',
-                      letterSpacing: 0.5,
+                      letterSpacing: 2,
                     ),
                   ),
                 ],
               ),
-            ),
-            Container(
-              decoration: const BoxDecoration(
-                color: Color(0x4C000000),
-                border: Border.symmetric(
-                  horizontal: BorderSide(color: _kBorder),
+              const SizedBox(height: 8),
+              const Text(
+                'My Library',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
                 ),
               ),
-              child: Row(
-                children: [
-                  _Stat(
-                    label: 'Total',
-                    value: '${library.length}',
-                    isFirst: true,
-                  ),
-                  _Stat(label: 'Ongoing', value: '$ongoingCount'),
-                  _Stat(label: 'Completed', value: '$completedCount'),
-                  _Stat(
-                    label: 'Avg Rating',
-                    value: library.isEmpty ? '—' : avgRating.toStringAsFixed(1),
-                  ),
-                ],
+              const SizedBox(height: 4),
+              Text(
+                '${library.length} series saved · your personal reading list',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  letterSpacing: 0.3,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+        ),
+        // Stats row — 4 equal columns
+        Container(
+          decoration: const BoxDecoration(
+            color: Color(0x4C000000),
+            border: Border.symmetric(horizontal: BorderSide(color: _kBorder)),
+          ),
+          child: Row(
+            children: [
+              _Stat(label: 'Total', value: '${library.length}', isFirst: true),
+              _Stat(label: 'Ongoing', value: '$ongoingCount'),
+              _Stat(label: 'Completed', value: '$completedCount'),
+              _Stat(
+                label: 'Avg ★',
+                value: library.isEmpty ? '—' : avgRating.toStringAsFixed(1),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -717,8 +686,7 @@ class _HeroStats extends StatelessWidget {
 }
 
 class _Stat extends StatelessWidget {
-  final String label;
-  final String value;
+  final String label, value;
   final bool isFirst;
   const _Stat({required this.label, required this.value, this.isFirst = false});
 
@@ -738,7 +706,7 @@ class _Stat extends StatelessWidget {
               value,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 22,
+                fontSize: 20,
                 fontWeight: FontWeight.w900,
                 height: 1,
               ),
@@ -750,7 +718,7 @@ class _Stat extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.3),
                 fontSize: 8,
                 fontFamily: 'monospace',
-                letterSpacing: 1.5,
+                letterSpacing: 1.2,
               ),
             ),
           ],
@@ -760,7 +728,7 @@ class _Stat extends StatelessWidget {
   }
 }
 
-// ── Grid card ─────────────────────────────────────────────────────────────────
+// ── Grid card — 2 column, mobile friendly ────────────────────────────────────
 class _GridCard extends StatefulWidget {
   final LibraryManga item;
   final VoidCallback onTap;
@@ -781,13 +749,13 @@ class _GridCardState extends State<_GridCard> {
   @override
   Widget build(BuildContext context) {
     final m = widget.item;
-
     return GestureDetector(
       onTap: widget.onTap,
       onLongPress: () => setState(() => _showRemove = !_showRemove),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Cover — taller for 2-col layout
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -799,6 +767,20 @@ class _GridCardState extends State<_GridCard> {
                 fit: StackFit.expand,
                 children: [
                   _Cover(src: m.coverImage, title: m.title),
+                  // Gradient overlay at bottom
+                  Positioned.fill(
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [Color(0xCC000000), Colors.transparent],
+                          stops: [0.0, 0.45],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Remove button (long-press)
                   if (_showRemove)
                     Positioned(
                       top: 8,
@@ -806,8 +788,8 @@ class _GridCardState extends State<_GridCard> {
                       child: GestureDetector(
                         onTap: widget.onRemove,
                         child: Container(
-                          width: 28,
-                          height: 28,
+                          width: 32,
+                          height: 32,
                           decoration: BoxDecoration(
                             color: const Color(0xD9EF4444),
                             borderRadius: BorderRadius.circular(8),
@@ -817,7 +799,7 @@ class _GridCardState extends State<_GridCard> {
                               '✕',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -825,13 +807,14 @@ class _GridCardState extends State<_GridCard> {
                         ),
                       ),
                     ),
+                  // Status badge bottom-left
                   Positioned(
                     bottom: 8,
                     left: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 2,
+                        horizontal: 8,
+                        vertical: 3,
                       ),
                       decoration: BoxDecoration(
                         color: _statusColor(m.status).withValues(alpha: 0.2),
@@ -844,67 +827,100 @@ class _GridCardState extends State<_GridCard> {
                         m.status.toUpperCase(),
                         style: TextStyle(
                           color: _statusColor(m.status),
-                          fontSize: 7,
+                          fontSize: 8,
                           fontFamily: 'monospace',
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
                   ),
+                  // Rating badge bottom-right
+                  if (m.rating > 0)
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '★ ${m.rating.toStringAsFixed(1)}',
+                          style: const TextStyle(
+                            color: Color(0xFFF4D03F),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.only(right: 2),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  m.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    if (m.rating > 0)
-                      Text(
-                        '★ ${m.rating.toStringAsFixed(1)}',
-                        style: const TextStyle(
-                          color: Color(0xFFF4D03F),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    Text(
-                      _timeAgo(m.addedAt),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        fontSize: 8,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+          const SizedBox(height: 8),
+          // Title
+          Text(
+            m.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              height: 1.3,
             ),
           ),
+          const SizedBox(height: 2),
+          // Author + time
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  m.author,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+              Text(
+                _timeAgo(m.addedAt),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  fontSize: 9,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+          // Long-press hint (shown when remove overlay is visible)
+          if (_showRemove)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Tap ✕ to remove',
+                style: TextStyle(
+                  color: _kRed.withValues(alpha: 0.6),
+                  fontSize: 9,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 }
 
-// ── List row ──────────────────────────────────────────────────────────────────
+// ── List row — bigger cover, swipe-friendly ───────────────────────────────────
 class _ListRow extends StatelessWidget {
   final LibraryManga item;
   final VoidCallback onTap;
@@ -923,17 +939,19 @@ class _ListRow extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.025),
           border: Border.all(color: _kBorder),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ✅ FIX: bigger cover — 64×88 instead of 48×64
             Container(
-              width: 48,
-              height: 64,
+              width: 64,
+              height: 88,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: _kOrange.withValues(alpha: 0.15)),
@@ -941,7 +959,7 @@ class _ListRow extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: _Cover(src: m.coverImage, title: m.title),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -952,7 +970,7 @@ class _ListRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w900,
                       height: 1.25,
                     ),
@@ -962,19 +980,20 @@ class _ListRow extends StatelessWidget {
                     'by ${m.author}',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.3),
-                      fontSize: 10,
+                      fontSize: 11,
                       fontFamily: 'monospace',
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 6,
                     runSpacing: 4,
                     children: [
+                      // Status
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 2,
+                          horizontal: 8,
+                          vertical: 3,
                         ),
                         decoration: BoxDecoration(
                           color: _statusColor(m.status).withValues(alpha: 0.15),
@@ -989,17 +1008,18 @@ class _ListRow extends StatelessWidget {
                           m.status.toUpperCase(),
                           style: TextStyle(
                             color: _statusColor(m.status),
-                            fontSize: 7,
+                            fontSize: 8,
                             fontFamily: 'monospace',
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
+                      // Genres
                       ...genres.map(
                         (g) => Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 2,
+                            horizontal: 8,
+                            vertical: 3,
                           ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.06),
@@ -1012,7 +1032,7 @@ class _ListRow extends StatelessWidget {
                             g.toUpperCase(),
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.4),
-                              fontSize: 7,
+                              fontSize: 8,
                               fontFamily: 'monospace',
                               letterSpacing: 0.5,
                             ),
@@ -1021,46 +1041,46 @@ class _ListRow extends StatelessWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  // Bottom row: time + remove button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _timeAgo(m.addedAt),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          fontSize: 10,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: onRemove,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0x14EF4444),
+                            border: Border.all(color: const Color(0x33EF4444)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            '✕ Remove',
+                            style: TextStyle(
+                              color: Color(0xFFF87171),
+                              fontSize: 10,
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  _timeAgo(m.addedAt),
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    fontSize: 9,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: onRemove,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0x14EF4444),
-                      border: Border.all(color: const Color(0x33EF4444)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      '✕ Remove',
-                      style: TextStyle(
-                        color: Color(0xFFF87171),
-                        fontSize: 9,
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ],
         ),
@@ -1076,7 +1096,6 @@ class _RemoveModal extends StatelessWidget {
   final bool removing;
   final VoidCallback onConfirm;
   final VoidCallback onCancel;
-
   const _RemoveModal({
     required this.mangaId,
     required this.library,
@@ -1102,8 +1121,8 @@ class _RemoveModal extends StatelessWidget {
             child: GestureDetector(
               onTap: () {},
               child: Container(
-                margin: const EdgeInsets.all(24),
-                padding: const EdgeInsets.all(28),
+                margin: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: _kCard,
                   border: Border.all(
@@ -1120,7 +1139,7 @@ class _RemoveModal extends StatelessWidget {
                     if (m != null)
                       Container(
                         margin: const EdgeInsets.only(bottom: 20),
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.03),
                           border: Border.all(
@@ -1131,8 +1150,8 @@ class _RemoveModal extends StatelessWidget {
                         child: Row(
                           children: [
                             Container(
-                              width: 44,
-                              height: 58,
+                              width: 48,
+                              height: 64,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
@@ -1142,7 +1161,7 @@ class _RemoveModal extends StatelessWidget {
                               clipBehavior: Clip.antiAlias,
                               child: _Cover(src: m.coverImage, title: m.title),
                             ),
-                            const SizedBox(width: 14),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1164,7 +1183,7 @@ class _RemoveModal extends StatelessWidget {
                                       color: Colors.white.withValues(
                                         alpha: 0.3,
                                       ),
-                                      fontSize: 10,
+                                      fontSize: 11,
                                       fontFamily: 'monospace',
                                     ),
                                   ),
@@ -1191,7 +1210,7 @@ class _RemoveModal extends StatelessWidget {
                       'Remove from Library?',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 22,
+                        fontSize: 20,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -1202,7 +1221,7 @@ class _RemoveModal extends StatelessWidget {
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.35),
                         fontSize: 13,
-                        height: 1.6,
+                        height: 1.5,
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -1238,7 +1257,6 @@ class _RemoveModal extends StatelessWidget {
                                           color: Colors.white,
                                           fontWeight: FontWeight.w900,
                                           fontSize: 15,
-                                          letterSpacing: 0.5,
                                         ),
                                       ),
                               ),

@@ -1,25 +1,17 @@
 // lib/features/dashboard/presentation/pages/dashboard_screen.dart
-//
-// Mirrors the web dashboard page exactly:
-//   • Hero banner with greeting + "in library" stat
-//   • Continue Reading (reading history with progress bars)
-//   • Featured Today (large tall cards with genre badges + Featured badge)
-//   • Top Rated (manga grid)
-//   • Recently Updated (manga grid)
-//   • My Library (mini grid + "Add More" cell)
-//   • Browse CTA
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../auth/presentation/view_model/auth_viewmodel_provider.dart';
 import '../../../manga/data/providers/manga_providers.dart';
+import '../../../../core/utils/navigation_utils.dart';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const _kOrange = Color(0xFFFF6B35);
 const _kRed = Color(0xFFE63946);
 const _kInk = Color(0xFF0A0A0F);
-const _kBorder = Color(0x14FFFFFF); // white 8%
+const _kBorder = Color(0x14FFFFFF);
 
 String _greeting() {
   final h = DateTime.now().hour;
@@ -52,7 +44,6 @@ class DashboardScreen extends ConsumerWidget {
       backgroundColor: _kInk,
       body: Stack(
         children: [
-          // ── Ambient glows ──────────────────────────────────────────────────
           Positioned(
             top: -80,
             left: -60,
@@ -63,19 +54,16 @@ class DashboardScreen extends ConsumerWidget {
             right: -60,
             child: _radialGlow(_kRed, 280, 0.12),
           ),
-          // Halftone dots
           Opacity(
             opacity: 0.025,
             child: SizedBox.expand(child: CustomPaint(painter: _DotPainter())),
           ),
-          // Scanlines
           Opacity(
             opacity: 0.018,
             child: SizedBox.expand(
               child: CustomPaint(painter: _ScanlinePainter()),
             ),
           ),
-          // Diagonal lines (matches web)
           Opacity(
             opacity: 0.03,
             child: SizedBox.expand(
@@ -83,14 +71,11 @@ class DashboardScreen extends ConsumerWidget {
             ),
           ),
 
-          // ── Content ────────────────────────────────────────────────────────
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // ─ App Bar ────────────────────────────────────────────────────
               _DashAppBar(greeting: _greeting()),
 
-              // ─ Hero Banner ────────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: _HeroBanner(
                   displayName: displayName,
@@ -99,7 +84,7 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
 
-              // ─ Continue Reading ───────────────────────────────────────────
+              // ─ Continue Reading ───────────────────────────────────────
               _SectionPad(
                 child: _SectionHeader(
                   title: 'Continue Reading',
@@ -129,7 +114,7 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
 
-              // ─ Featured Today ─────────────────────────────────────────────
+              // ─ Featured Today ─────────────────────────────────────────
               _SectionPad(
                 child: _SectionHeader(
                   title: 'Featured Today',
@@ -148,13 +133,13 @@ class DashboardScreen extends ConsumerWidget {
                       final featured = (manga.toList()..shuffle())
                           .take(3)
                           .toList();
-                      return _FeaturedRow(manga: featured, onTap: onBrowseTap);
+                      return _FeaturedRow(manga: featured);
                     },
                   ),
                 ),
               ),
 
-              // ─ Top Rated ─────────────────────────────────────────────────
+              // ─ Top Rated ─────────────────────────────────────────────
               _SectionPad(
                 child: _SectionHeader(
                   title: 'Top Rated',
@@ -170,15 +155,12 @@ class DashboardScreen extends ConsumerWidget {
                   data: (manga) {
                     final sorted = [...manga]
                       ..sort((a, b) => b.rating.compareTo(a.rating));
-                    return _MangaGridRow(
-                      manga: sorted.take(6).toList(),
-                      onTap: onBrowseTap,
-                    );
+                    return _MangaGridRow(manga: sorted.take(6).toList());
                   },
                 ),
               ),
 
-              // ─ Recently Updated ───────────────────────────────────────────
+              // ─ Recently Updated ───────────────────────────────────────
               _SectionPad(
                 child: _SectionHeader(
                   title: 'Recently Updated',
@@ -191,16 +173,12 @@ class DashboardScreen extends ConsumerWidget {
                 child: mangaAsync.when(
                   loading: () => _MangaGridSkeletonRow(),
                   error: (e, s) => const SizedBox.shrink(),
-                  data: (manga) {
-                    return _MangaGridRow(
-                      manga: manga.reversed.take(6).toList(),
-                      onTap: onBrowseTap,
-                    );
-                  },
+                  data: (manga) =>
+                      _MangaGridRow(manga: manga.reversed.take(6).toList()),
                 ),
               ),
 
-              // ─ My Library ────────────────────────────────────────────────
+              // ─ My Library ────────────────────────────────────────────
               _SectionPad(
                 child: _SectionHeader(
                   title: 'My Library',
@@ -231,7 +209,7 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
 
-              // ─ Browse CTA ────────────────────────────────────────────────
+              // ─ Browse CTA ────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 40, 20, 48),
@@ -285,7 +263,6 @@ class _DashAppBar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                // Logo
                 Container(
                   width: 30,
                   height: 30,
@@ -362,14 +339,12 @@ class _HeroBanner extends StatelessWidget {
 
     return Stack(
       children: [
-        // Diagonal stripe overlay (web: repeating-linear-gradient -55deg)
         Positioned.fill(
           child: Opacity(
             opacity: 0.03,
             child: CustomPaint(painter: _DiagLinePainter()),
           ),
         ),
-        // Watermark text "LIBRARY" (web: large transparent text top-right)
         Positioned(
           top: -10,
           right: -20,
@@ -383,7 +358,6 @@ class _HeroBanner extends StatelessWidget {
             ),
           ),
         ),
-
         Container(
           padding: const EdgeInsets.fromLTRB(20, 32, 20, 28),
           decoration: const BoxDecoration(
@@ -392,7 +366,6 @@ class _HeroBanner extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Eyebrow
               Row(
                 children: [
                   Container(width: 28, height: 2, color: _kOrange),
@@ -404,14 +377,11 @@ class _HeroBanner extends StatelessWidget {
                       fontSize: 10,
                       fontFamily: 'monospace',
                       letterSpacing: 2,
-                      textBaseline: TextBaseline.alphabetic,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-
-              // Display name (gradient)
               ShaderMask(
                 shaderCallback: (b) => const LinearGradient(
                   colors: [Colors.white, _kOrange, _kRed],
@@ -430,7 +400,6 @@ class _HeroBanner extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-
               Text(
                 historyCount > 0
                     ? 'You have $historyCount stor${historyCount == 1 ? "y" : "ies"} in progress. Keep the adventure going!'
@@ -442,8 +411,6 @@ class _HeroBanner extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // In Library stat card
               Container(
                 padding: const EdgeInsets.fromLTRB(22, 16, 22, 14),
                 decoration: BoxDecoration(
@@ -454,7 +421,6 @@ class _HeroBanner extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Left accent
                     Container(
                       width: 2,
                       height: 48,
@@ -514,11 +480,8 @@ class _HeroBanner extends StatelessWidget {
 
 // ── Section Header ────────────────────────────────────────────────────────────
 class _SectionHeader extends StatelessWidget {
-  final String title;
-  final String sub;
-  final String chapter;
+  final String title, sub, chapter;
   final VoidCallback onViewAll;
-
   const _SectionHeader({
     required this.title,
     required this.sub,
@@ -595,11 +558,9 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// ── Section padding sliver wrapper ────────────────────────────────────────────
 class _SectionPad extends StatelessWidget {
   final Widget child;
   const _SectionPad({required this.child});
-
   @override
   Widget build(BuildContext context) {
     return SliverToBoxAdapter(
@@ -631,134 +592,139 @@ class _ContinueCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = (entry.progress as num?)?.toDouble() ?? 0.0;
+    // ✅ FIX: navigate to manga detail, not browse tab
+    final mangaId = entry.mangaId?.toString() ?? '';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.025),
-        border: Border.all(color: _kBorder),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          // Cover banner
-          Stack(
-            children: [
-              SizedBox(
-                height: 140,
-                width: double.infinity,
-                child: _Cover(
-                  src: entry.coverImage as String?,
-                  title: entry.title as String,
+    return GestureDetector(
+      onTap: mangaId.isNotEmpty
+          ? () => AppNavigator.toMangaDetail(context, mangaId)
+          : null,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.025),
+          border: Border.all(color: _kBorder),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            Stack(
+              children: [
+                SizedBox(
+                  height: 140,
+                  width: double.infinity,
+                  child: _Cover(
+                    src: entry.coverImage as String?,
+                    title: entry.title as String,
+                  ),
                 ),
-              ),
-              // Gradient overlay
-              Positioned.fill(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Color(0xCC000000)],
-                      stops: [0.4, 1.0],
+                Positioned.fill(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Color(0xCC000000)],
+                        stops: [0.4, 1.0],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              // Progress bar
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Stack(
-                  children: [
-                    Container(
-                      height: 3,
-                      color: Colors.black.withValues(alpha: 0.4),
-                    ),
-                    FractionallySizedBox(
-                      widthFactor: (progress / 100).clamp(0.0, 1.0),
-                      child: Container(
+                // Progress bar
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Stack(
+                    children: [
+                      Container(
                         height: 3,
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(colors: [_kOrange, _kRed]),
+                        color: Colors.black.withValues(alpha: 0.4),
+                      ),
+                      FractionallySizedBox(
+                        widthFactor: (progress / 100).clamp(0.0, 1.0),
+                        child: Container(
+                          height: 3,
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(colors: [_kOrange, _kRed]),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              // Title + chapter overlay
-              Positioned(
-                bottom: 12,
-                left: 14,
-                right: 14,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entry.title as String,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 14,
+                Positioned(
+                  bottom: 12,
+                  left: 14,
+                  right: 14,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entry.title as String,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Ch. ${entry.chapterNumber ?? "?"}',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        fontSize: 11,
-                        fontFamily: 'monospace',
+                      const SizedBox(height: 2),
+                      Text(
+                        'Ch. ${entry.chapterNumber ?? "?"}',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          // Bottom row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${progress.toInt()}% complete',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.35),
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _kOrange.withValues(alpha: 0.1),
-                    border: Border.all(color: _kOrange.withValues(alpha: 0.2)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'Continue →',
-                    style: TextStyle(
-                      color: _kOrange,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                    ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${progress.toInt()}% complete',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.35),
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _kOrange.withValues(alpha: 0.1),
+                      border: Border.all(
+                        color: _kOrange.withValues(alpha: 0.2),
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'Continue →',
+                      style: TextStyle(
+                        color: _kOrange,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -772,7 +738,7 @@ class _HistorySkeletonRow extends StatelessWidget {
         2,
         (i) => Container(
           margin: const EdgeInsets.only(bottom: 14),
-          height: 140 + 46,
+          height: 186,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.04),
             border: Border.all(color: _kBorder),
@@ -787,8 +753,7 @@ class _HistorySkeletonRow extends StatelessWidget {
 // ── Featured Today ────────────────────────────────────────────────────────────
 class _FeaturedRow extends StatelessWidget {
   final List<dynamic> manga;
-  final VoidCallback onTap;
-  const _FeaturedRow({required this.manga, required this.onTap});
+  const _FeaturedRow({required this.manga});
 
   @override
   Widget build(BuildContext context) {
@@ -796,13 +761,7 @@ class _FeaturedRow extends StatelessWidget {
       children: manga
           .asMap()
           .entries
-          .map(
-            (e) => _FeaturedCard(
-              manga: e.value,
-              isFirst: e.key == 0,
-              onTap: onTap,
-            ),
-          )
+          .map((e) => _FeaturedCard(manga: e.value, isFirst: e.key == 0))
           .toList(),
     );
   }
@@ -811,19 +770,18 @@ class _FeaturedRow extends StatelessWidget {
 class _FeaturedCard extends StatelessWidget {
   final dynamic manga;
   final bool isFirst;
-  final VoidCallback onTap;
-  const _FeaturedCard({
-    required this.manga,
-    required this.isFirst,
-    required this.onTap,
-  });
+  const _FeaturedCard({required this.manga, required this.isFirst});
 
   @override
   Widget build(BuildContext context) {
     final genres = (manga.genre as List?)?.take(2).toList() ?? [];
+    // ✅ FIX: navigate to manga detail
+    final mangaId = manga.id?.toString() ?? manga.mangaId?.toString() ?? '';
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: mangaId.isNotEmpty
+          ? () => AppNavigator.toMangaDetail(context, mangaId)
+          : null,
       child: Container(
         height: 240,
         margin: const EdgeInsets.only(bottom: 14),
@@ -835,13 +793,10 @@ class _FeaturedCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Cover
             _Cover(
               src: manga.coverImage as String?,
               title: manga.title as String,
             ),
-
-            // Gradient
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -852,8 +807,6 @@ class _FeaturedCard extends StatelessWidget {
                 ),
               ),
             ),
-
-            // Featured badge (first card only)
             if (isFirst)
               Positioned(
                 top: 12,
@@ -879,8 +832,6 @@ class _FeaturedCard extends StatelessWidget {
                   ),
                 ),
               ),
-
-            // Rating badge
             if ((manga.rating as num?) != null && manga.rating > 0)
               Positioned(
                 top: 12,
@@ -916,8 +867,6 @@ class _FeaturedCard extends StatelessWidget {
                   ),
                 ),
               ),
-
-            // Bottom info
             Positioned(
               bottom: 0,
               left: 0,
@@ -927,7 +876,6 @@ class _FeaturedCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Genre tags
                     if (genres.isNotEmpty)
                       Wrap(
                         spacing: 5,
@@ -1007,11 +955,10 @@ class _FeaturedSkeleton extends StatelessWidget {
   }
 }
 
-// ── Manga grid row (Top Rated / Recently Updated) ─────────────────────────────
+// ── Manga grid row ────────────────────────────────────────────────────────────
 class _MangaGridRow extends StatelessWidget {
   final List<dynamic> manga;
-  final VoidCallback onTap;
-  const _MangaGridRow({required this.manga, required this.onTap});
+  const _MangaGridRow({required this.manga});
 
   @override
   Widget build(BuildContext context) {
@@ -1027,8 +974,7 @@ class _MangaGridRow extends StatelessWidget {
           mainAxisSpacing: 10,
         ),
         itemCount: manga.length,
-        itemBuilder: (context, i) =>
-            _MangaGridCard(manga: manga[i], onTap: onTap),
+        itemBuilder: (context, i) => _MangaGridCard(manga: manga[i]),
       ),
     );
   }
@@ -1036,13 +982,17 @@ class _MangaGridRow extends StatelessWidget {
 
 class _MangaGridCard extends StatelessWidget {
   final dynamic manga;
-  final VoidCallback onTap;
-  const _MangaGridCard({required this.manga, required this.onTap});
+  const _MangaGridCard({required this.manga});
 
   @override
   Widget build(BuildContext context) {
+    // ✅ FIX: navigate to manga detail
+    final mangaId = manga.id?.toString() ?? manga.mangaId?.toString() ?? '';
+
     return GestureDetector(
-      onTap: onTap,
+      onTap: mangaId.isNotEmpty
+          ? () => AppNavigator.toMangaDetail(context, mangaId)
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1060,7 +1010,6 @@ class _MangaGridCard extends StatelessWidget {
                     src: manga.coverImage as String?,
                     title: manga.title as String,
                   ),
-                  // Overlay
                   Positioned.fill(
                     child: Container(
                       decoration: const BoxDecoration(
@@ -1073,7 +1022,6 @@ class _MangaGridCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Rating
                   if ((manga.rating as num?) != null && manga.rating > 0)
                     Positioned(
                       top: 5,
@@ -1167,7 +1115,6 @@ class _LibraryMiniGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // items + 1 "Add More" cell
     final count = items.length + 1;
     return GridView.builder(
       shrinkWrap: true,
@@ -1180,6 +1127,7 @@ class _LibraryMiniGrid extends StatelessWidget {
       ),
       itemCount: count,
       itemBuilder: (context, i) {
+        // ✅ FIX: "Add More" cell stays as browse tap; items navigate to detail
         if (i == items.length) {
           return GestureDetector(
             onTap: onAddMore,
@@ -1193,7 +1141,6 @@ class _LibraryMiniGrid extends StatelessWidget {
                       border: Border.all(
                         color: _kOrange.withValues(alpha: 0.2),
                         width: 1.5,
-                        style: BorderStyle.solid,
                       ),
                       color: _kOrange.withValues(alpha: 0.03),
                     ),
@@ -1224,8 +1171,11 @@ class _LibraryMiniGrid extends StatelessWidget {
           );
         }
         final m = items[i];
+        final mangaId = m.mangaId?.toString() ?? m.id?.toString() ?? '';
         return GestureDetector(
-          onTap: onAddMore,
+          onTap: mangaId.isNotEmpty
+              ? () => AppNavigator.toMangaDetail(context, mangaId)
+              : null,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1364,12 +1314,8 @@ class _BrowseCTA extends StatelessWidget {
 
 // ── Empty State ───────────────────────────────────────────────────────────────
 class _EmptyState extends StatelessWidget {
-  final String icon;
-  final String title;
-  final String sub;
-  final String cta;
+  final String icon, title, sub, cta;
   final VoidCallback onTap;
-
   const _EmptyState({
     required this.icon,
     required this.title,
@@ -1483,7 +1429,10 @@ class _CoverState extends State<_Cover> {
   }
 
   Widget _fallback() {
-    final colors = _gradients[widget.title.codeUnitAt(0) % _gradients.length];
+    final colors =
+        _gradients[widget.title.isEmpty
+            ? 0
+            : widget.title.codeUnitAt(0) % _gradients.length];
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -1525,7 +1474,7 @@ class _DotPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
+  bool shouldRepaint(covariant CustomPainter _) => false;
 }
 
 class _ScanlinePainter extends CustomPainter {
@@ -1540,7 +1489,7 @@ class _ScanlinePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
+  bool shouldRepaint(covariant CustomPainter _) => false;
 }
 
 class _DiagLinePainter extends CustomPainter {
@@ -1549,12 +1498,11 @@ class _DiagLinePainter extends CustomPainter {
     final p = Paint()
       ..color = _kOrange.withValues(alpha: 0.8)
       ..strokeWidth = 1;
-    const spacing = 61.0;
-    for (double x = -size.height; x < size.width + size.height; x += spacing) {
+    for (double x = -size.height; x < size.width + size.height; x += 61) {
       canvas.drawLine(Offset(x, 0), Offset(x + size.height, size.height), p);
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
+  bool shouldRepaint(covariant CustomPainter _) => false;
 }

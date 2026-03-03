@@ -243,6 +243,7 @@ class _HalftonePainter extends CustomPainter {
     }
   }
 
+  // FIX: unnecessary_underscores — use single _ instead of __
   @override
   bool shouldRepaint(covariant CustomPainter _) => false;
 }
@@ -836,7 +837,7 @@ class _MangaGrid extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MANGA CARD  ← PATCHED: onTap now navigates to MangaDetailPage
+// MANGA CARD
 // ─────────────────────────────────────────────────────────────────────────────
 class _MangaCard extends StatelessWidget {
   final MangaEntity manga;
@@ -857,7 +858,6 @@ class _MangaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      // ✅ PATCHED: navigate to manga detail
       onTap: () => AppNavigator.toMangaDetail(context, manga.id),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1335,6 +1335,7 @@ class _Pagination extends StatelessWidget {
             onTap: () => onPageChanged(page - 1),
           ),
           const SizedBox(width: 8),
+          // FIX: unnecessary_to_list_in_spreads — removed .toList() from spread
           ..._visiblePages.map((pageNum) {
             return Padding(
               padding: const EdgeInsets.only(right: 4),
@@ -1380,7 +1381,7 @@ class _Pagination extends StatelessWidget {
                 ),
               ),
             );
-          }).toList(),
+          }),
           const SizedBox(width: 4),
           _PageBtn(
             label: 'Next →',

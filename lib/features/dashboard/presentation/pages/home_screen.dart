@@ -3,15 +3,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/presentation/view_model/auth_viewmodel_provider.dart';
+import '../../../manga/data/providers/manga_providers.dart';
+import '../../../manga/domain/entities/reading_history_entry.dart';
+import '../../../manga/domain/entities/library_manga.dart';
+import '../../../../core/utils/navigation_utils.dart';
 
 // ── Brand colors ──────────────────────────────────────────────────────────────
 const _kOrange = Color(0xFFFF6B35);
 const _kRed = Color(0xFFE63946);
 const _kInk = Color(0xFF0A0A0F);
+const _kBorder = Color(0x14FFFFFF);
 
 class HomeScreen extends ConsumerWidget {
-  /// Called when "Browse Manga" / any CTA is tapped.
-  /// Parent (DashboardPage) passes switchTab(1) here so the nav bar stays visible.
   final VoidCallback onBrowseTap;
 
   const HomeScreen({super.key, required this.onBrowseTap});
@@ -61,6 +64,8 @@ class HomeScreen extends ConsumerWidget {
     final user = ref.watch(authViewModelProvider).currentUser;
     final isAuth = user != null;
     final username = user?.username ?? 'Reader';
+    final historyAsync = ref.watch(readingHistoryProvider);
+    final libraryAsync = ref.watch(libraryProvider);
 
     return Scaffold(
       backgroundColor: _kInk,
@@ -71,22 +76,51 @@ class HomeScreen extends ConsumerWidget {
             physics: const BouncingScrollPhysics(),
             slivers: [
               _InkAppBar(username: username),
-              SliverToBoxAdapter(
-                child: _HeroSection(
-                  isAuth: isAuth,
-                  onPrimary: onBrowseTap, // ← uses callback, NOT Navigator.push
+
+              // ── Continue Reading (only if logged in + has history) ──────────
+              if (isAuth)
+                SliverToBoxAdapter(
+                  child: historyAsync.when(
+                    loading: () =>
+                        const _SectionSkeleton(label: 'CONTINUE READING'),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (history) {
+                      if (history.isEmpty) return const SizedBox.shrink();
+                      return _ContinueReadingSection(
+                        history: history.take(5).toList(),
+                      );
+                    },
+                  ),
                 ),
+
+              // ── My Library (only if logged in + has library items) ──────────
+              if (isAuth)
+                SliverToBoxAdapter(
+                  child: libraryAsync.when(
+                    loading: () => const _SectionSkeleton(label: 'MY LIBRARY'),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (library) {
+                      if (library.isEmpty) return const SizedBox.shrink();
+                      return _LibrarySection(
+                        library: library.take(6).toList(),
+                        onBrowseTap: onBrowseTap,
+                      );
+                    },
+                  ),
+                ),
+
+              // ── Hero ───────────────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _HeroSection(isAuth: isAuth, onPrimary: onBrowseTap),
               ),
+
               const SliverToBoxAdapter(child: _StatsBar()),
               const SliverToBoxAdapter(child: _FeaturesSection()),
               SliverToBoxAdapter(
-                child: _GenresSection(onGenreTap: (genre) => onBrowseTap()),
+                child: _GenresSection(onGenreTap: (_) => onBrowseTap()),
               ),
               SliverToBoxAdapter(
-                child: _FinalCTA(
-                  isAuth: isAuth,
-                  onTap: onBrowseTap, // ← uses callback, NOT Navigator.push
-                ),
+                child: _FinalCTA(isAuth: isAuth, onTap: onBrowseTap),
               ),
               const SliverToBoxAdapter(child: _Footer()),
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -94,6 +128,463 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTINUE READING SECTION
+// ─────────────────────────────────────────────────────────────────────────────
+class _ContinueReadingSection extends StatelessWidget {
+  final List<ReadingHistoryEntry> history;
+  const _ContinueReadingSection({required this.history});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _kBorder)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeader(
+            eyebrow: 'CONTINUE READING',
+            title: 'Pick Up\nWhere You Left Off',
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 180,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: history.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, i) => _HistoryCard(entry: history[i]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryCard extends StatelessWidget {
+  final ReadingHistoryEntry entry;
+  const _HistoryCard({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => AppNavigator.toMangaDetail(context, entry.mangaId),
+      child: SizedBox(
+        width: 120,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Cover
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _CoverWidget(src: entry.coverImage, title: entry.title),
+                    // Progress bar at bottom
+                    if (entry.progress > 0)
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Column(
+                          children: [
+                            Container(
+                              height: 2,
+                              decoration: BoxDecoration(color: Colors.black45),
+                              child: FractionallySizedBox(
+                                alignment: Alignment.centerLeft,
+                                widthFactor: (entry.progress / 100).clamp(
+                                  0.0,
+                                  1.0,
+                                ),
+                                child: Container(color: _kOrange),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    // Chapter badge
+                    if (entry.chapterNumber != null)
+                      Positioned(
+                        top: 6,
+                        left: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: _kOrange.withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: Text(
+                            'Ch.${entry.chapterNumber}',
+                            style: const TextStyle(
+                              color: _kOrange,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ),
+                      ),
+                    // Play overlay
+                    Center(
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              entry.title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (entry.lastReadAt != null)
+              Text(
+                _timeAgo(entry.lastReadAt!),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  fontSize: 9,
+                  fontFamily: 'monospace',
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${(diff.inDays / 7).floor()}w ago';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MY LIBRARY SECTION
+// ─────────────────────────────────────────────────────────────────────────────
+class _LibrarySection extends StatelessWidget {
+  final List<LibraryManga> library;
+  final VoidCallback onBrowseTap;
+  const _LibrarySection({required this.library, required this.onBrowseTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _kBorder)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _SectionHeader(
+                  eyebrow: 'MY LIBRARY',
+                  title: 'Your\nCollection',
+                ),
+              ),
+              GestureDetector(
+                onTap: onBrowseTap,
+                child: Text(
+                  'See All →',
+                  style: TextStyle(
+                    color: _kOrange.withValues(alpha: 0.7),
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 160,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: library.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, i) => _LibraryCard(manga: library[i]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LibraryCard extends StatelessWidget {
+  final LibraryManga manga;
+  const _LibraryCard({required this.manga});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => AppNavigator.toMangaDetail(context, manga.mangaId),
+      child: SizedBox(
+        width: 100,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: _CoverWidget(src: manga.coverImage, title: manga.title),
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              manga.title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARED COVER WIDGET
+// ─────────────────────────────────────────────────────────────────────────────
+class _CoverWidget extends StatelessWidget {
+  final String? src;
+  final String title;
+  const _CoverWidget({required this.src, required this.title});
+
+  static const _fallbackColors = [
+    Color(0xFF2A0A0A),
+    Color(0xFF0A1A2A),
+    Color(0xFF1A0A2E),
+    Color(0xFF0A2A1A),
+    Color(0xFF2A1A0A),
+  ];
+
+  Color get _fallback =>
+      _fallbackColors[title.isNotEmpty ? title.codeUnitAt(0) % 5 : 0];
+
+  @override
+  Widget build(BuildContext context) {
+    if (src != null && src!.isNotEmpty) {
+      return Image.network(
+        src!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _Fallback(color: _fallback),
+      );
+    }
+    return _Fallback(color: _fallback);
+  }
+}
+
+class _Fallback extends StatelessWidget {
+  final Color color;
+  const _Fallback({required this.color});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color, color.withValues(alpha: 0.5)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.menu_book_rounded,
+          color: Colors.white.withValues(alpha: 0.15),
+          size: 28,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION SKELETON (while loading)
+// ─────────────────────────────────────────────────────────────────────────────
+class _SectionSkeleton extends StatelessWidget {
+  final String label;
+  const _SectionSkeleton({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: _kOrange.withValues(alpha: 0.4),
+              fontSize: 9,
+              fontFamily: 'monospace',
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 160,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: 4,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (_, __) => _SkeletonCard(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkeletonCard extends StatefulWidget {
+  @override
+  State<_SkeletonCard> createState() => _SkeletonCardState();
+}
+
+class _SkeletonCardState extends State<_SkeletonCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    _anim = Tween(begin: 0.3, end: 0.7).animate(_ctrl);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _anim,
+      child: SizedBox(
+        width: 100,
+        child: Column(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              height: 8,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION HEADER
+// ─────────────────────────────────────────────────────────────────────────────
+class _SectionHeader extends StatelessWidget {
+  final String eyebrow;
+  final String title;
+  const _SectionHeader({required this.eyebrow, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(width: 20, height: 2, color: _kOrange),
+            const SizedBox(width: 8),
+            Text(
+              eyebrow,
+              style: TextStyle(
+                color: _kOrange.withValues(alpha: 0.7),
+                fontSize: 9,
+                fontFamily: 'monospace',
+                letterSpacing: 2,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 26,
+            fontWeight: FontWeight.w900,
+            height: 1.0,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -162,7 +653,7 @@ class _DotPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter _) => false;
 }
 
 class _ScanlinePainter extends CustomPainter {
@@ -177,7 +668,7 @@ class _ScanlinePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter _) => false;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -333,7 +824,6 @@ class _HeroSection extends StatelessWidget {
           ),
           const SizedBox(height: 28),
 
-          // Genre badges
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -373,7 +863,6 @@ class _HeroSection extends StatelessWidget {
           ),
           const SizedBox(height: 32),
 
-          // CTA
           GestureDetector(
             onTap: onPrimary,
             child: Container(
@@ -403,10 +892,8 @@ class _HeroSection extends StatelessWidget {
               ),
             ),
           ),
-
           const SizedBox(height: 24),
 
-          // Social proof
           Row(
             children: [
               SizedBox(
@@ -597,7 +1084,6 @@ class _FeaturesSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -744,7 +1230,6 @@ class _GenresSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-
           Wrap(
             spacing: 8,
             runSpacing: 8,
