@@ -3,9 +3,6 @@
 import '../config/app_config.dart';
 
 class ApiEndpoints {
-  // ── Base URL from AppConfig ───────────────────────────────────────────────
-  // AppConfig.baseUrl already includes '/api' (e.g. http://192.168.1.70:3000/api)
-  // So all paths below are just the suffix AFTER /api
   static String get baseUrl => AppConfig.baseUrl;
 
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -16,6 +13,8 @@ class ApiEndpoints {
   static const String updateProfile = '/auth/update-profile';
   static const String forgotPassword = '/auth/forgot-password';
   static const String resetPassword = '/auth/reset-password';
+  static String verifyResetToken(String token) =>
+      '/auth/verify-reset-token/$token';
 
   // ── Manga ─────────────────────────────────────────────────────────────────
   static const String manga = '/manga';

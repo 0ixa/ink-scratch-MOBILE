@@ -7,6 +7,7 @@ import '../../../../app/themes/app_colors.dart';
 import '../state/auth_state.dart';
 import '../view_model/auth_viewmodel_provider.dart';
 import '../widgets/auth_widgets.dart';
+import 'forgot_password_page.dart';
 import 'signup_page.dart';
 import '../../../dashboard/presentation/pages/dashboard_page.dart';
 
@@ -315,12 +316,17 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                         ],
                                       ),
                                     ),
-                                    // Forgot password
+
+                                    // ── Forgot password — now navigates ──────
                                     TextButton(
                                       onPressed: () {
-                                        // Navigate to forgot password page
-                                        // Navigator.push(context, MaterialPageRoute(
-                                        //   builder: (_) => const ForgotPasswordPage()));
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const ForgotPasswordPage(),
+                                          ),
+                                        );
                                       },
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,

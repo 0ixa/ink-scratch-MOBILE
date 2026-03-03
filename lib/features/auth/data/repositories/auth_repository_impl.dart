@@ -1,4 +1,5 @@
 // lib/features/auth/data/repositories/auth_repository_impl.dart
+
 import 'package:dartz/dartz.dart';
 import '../../domain/entities/auth_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -69,6 +70,52 @@ class AuthRepositoryImpl implements AuthRepository {
         profilePicturePath: profilePicturePath,
       );
       return Right(authEntity);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> forgotPassword({required String email}) async {
+    try {
+      await remoteDatasource.forgotPassword(email: email);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> verifyResetToken({
+    required String token,
+  }) async {
+    try {
+      final isValid = await remoteDatasource.verifyResetToken(token: token);
+      return Right(isValid);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> resetPassword({
+    required String token,
+    required String password,
+    required String confirmPassword,
+  }) async {
+    try {
+      await remoteDatasource.resetPassword(
+        token: token,
+        password: password,
+        confirmPassword: confirmPassword,
+      );
+      return const Right(null);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));
     } catch (e) {

@@ -1,3 +1,5 @@
+// lib/features/auth/data/datasources/remote/auth_remote_datasource.dart
+
 import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ink_scratch/core/services/storage/user_session_service.dart';
@@ -129,7 +131,6 @@ class AuthRemoteDatasource {
   }
 
   /// Update user profile (bio and profile picture)
-  /// Works on both WEB and PHYSICAL DEVICES
   Future<AuthEntity> updateProfile({
     String? bio,
     String? profilePicturePath,
@@ -211,6 +212,114 @@ class AuthRemoteDatasource {
       );
       final message =
           e.response?.data['message'] ?? e.message ?? 'Profile update failed';
+      throw ServerException(message);
+    } catch (e) {
+      logger.e('UNEXPECTED ERROR: $e');
+      throw ServerException(e.toString());
+    }
+  }
+
+  /// Request a password reset email
+  Future<void> forgotPassword({required String email}) async {
+    try {
+      logger.d(
+        'FORGOT PASSWORD REQUEST: URL: ${apiClient.client.options.baseUrl}${ApiEndpoints.forgotPassword}, Email: $email',
+      );
+
+      final response = await apiClient.client.post(
+        ApiEndpoints.forgotPassword,
+        data: {'email': email},
+      );
+
+      logger.d(
+        'FORGOT PASSWORD RESPONSE: Status: ${response.statusCode}, Data: ${response.data}',
+      );
+
+      if (response.data['success'] != true) {
+        throw ServerException(
+          response.data['message'] ?? 'Failed to send reset email',
+        );
+      }
+    } on DioException catch (e) {
+      logger.e(
+        'FORGOT PASSWORD ERROR: Type: ${e.type}, Message: ${e.message}, Response: ${e.response?.data}',
+      );
+      final message =
+          e.response?.data['message'] ??
+          e.message ??
+          'Failed to send reset email';
+      throw ServerException(message);
+    } catch (e) {
+      logger.e('UNEXPECTED ERROR: $e');
+      throw ServerException(e.toString());
+    }
+  }
+
+  /// Verify if a reset token is still valid
+  Future<bool> verifyResetToken({required String token}) async {
+    try {
+      logger.d(
+        'VERIFY RESET TOKEN REQUEST: URL: ${apiClient.client.options.baseUrl}${ApiEndpoints.verifyResetToken(token)}',
+      );
+
+      final response = await apiClient.client.get(
+        ApiEndpoints.verifyResetToken(token),
+      );
+
+      logger.d(
+        'VERIFY RESET TOKEN RESPONSE: Status: ${response.statusCode}, Data: ${response.data}',
+      );
+
+      return response.data['success'] == true;
+    } on DioException catch (e) {
+      logger.e(
+        'VERIFY RESET TOKEN ERROR: Status: ${e.response?.statusCode}, Data: ${e.response?.data}',
+      );
+      // 400 = invalid/expired — treat as false rather than throwing
+      return false;
+    } catch (e) {
+      logger.e('UNEXPECTED ERROR: $e');
+      return false;
+    }
+  }
+
+  /// Reset password using token
+  Future<void> resetPassword({
+    required String token,
+    required String password,
+    required String confirmPassword,
+  }) async {
+    try {
+      logger.d(
+        'RESET PASSWORD REQUEST: URL: ${apiClient.client.options.baseUrl}${ApiEndpoints.resetPassword}',
+      );
+
+      final response = await apiClient.client.post(
+        ApiEndpoints.resetPassword,
+        data: {
+          'token': token,
+          'password': password,
+          'confirmPassword': confirmPassword,
+        },
+      );
+
+      logger.d(
+        'RESET PASSWORD RESPONSE: Status: ${response.statusCode}, Data: ${response.data}',
+      );
+
+      if (response.data['success'] != true) {
+        throw ServerException(
+          response.data['message'] ?? 'Failed to reset password',
+        );
+      }
+    } on DioException catch (e) {
+      logger.e(
+        'RESET PASSWORD ERROR: Type: ${e.type}, Message: ${e.message}, Response: ${e.response?.data}',
+      );
+      final message =
+          e.response?.data['message'] ??
+          e.message ??
+          'Failed to reset password';
       throw ServerException(message);
     } catch (e) {
       logger.e('UNEXPECTED ERROR: $e');

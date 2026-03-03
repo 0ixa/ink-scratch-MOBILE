@@ -375,8 +375,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                 sliver: SliverToBoxAdapter(
                   child: GestureDetector(
-                    onTap:
-                        widget.onLibraryTap, // ← fixed: no more Navigator.push
+                    onTap: widget.onLibraryTap,
                     child: Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -512,7 +511,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       return Image.network(
         profileUrl,
         fit: BoxFit.cover,
-        errorBuilder: (_, _e, _st) => _initialsFallback(initials),
+        // Fixed: removed leading underscores from local variables
+        errorBuilder: (context, error, stackTrace) =>
+            _initialsFallback(initials),
       );
     }
     return _initialsFallback(initials);
@@ -935,7 +936,8 @@ class _EditTab extends StatelessWidget {
         const SizedBox(height: 10),
         ValueListenableBuilder<TextEditingValue>(
           valueListenable: bioCtrl,
-          builder: (_, val, _w) => Column(
+          // Fixed: removed leading underscore from 'w' parameter
+          builder: (context, val, child) => Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Container(
@@ -1221,7 +1223,7 @@ class _DotPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter _) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _DiagLinePainter extends CustomPainter {
@@ -1236,5 +1238,5 @@ class _DiagLinePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter _) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
