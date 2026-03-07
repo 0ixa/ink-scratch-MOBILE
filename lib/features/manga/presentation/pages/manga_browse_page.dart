@@ -1302,7 +1302,7 @@ class _ErrorState extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PAGINATION
+// PAGINATION — fixed overflow by wrapping in SingleChildScrollView
 // ─────────────────────────────────────────────────────────────────────────────
 class _Pagination extends StatelessWidget {
   final int page;
@@ -1325,68 +1325,71 @@ class _Pagination extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _PageBtn(
-            label: '← Prev',
-            enabled: page > 1,
-            onTap: () => onPageChanged(page - 1),
-          ),
-          const SizedBox(width: 8),
-          ..._visiblePages.map((pageNum) {
-            return Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: GestureDetector(
-                onTap: () => onPageChanged(pageNum),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    gradient: pageNum == page
-                        ? const LinearGradient(colors: [_kOrange, _kRed])
-                        : null,
-                    color: pageNum == page
-                        ? null
-                        : Colors.white.withValues(alpha: 0.03),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _PageBtn(
+              label: '← Prev',
+              enabled: page > 1,
+              onTap: () => onPageChanged(page - 1),
+            ),
+            const SizedBox(width: 8),
+            ..._visiblePages.map((pageNum) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: GestureDetector(
+                  onTap: () => onPageChanged(pageNum),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      gradient: pageNum == page
+                          ? const LinearGradient(colors: [_kOrange, _kRed])
+                          : null,
                       color: pageNum == page
-                          ? Colors.transparent
-                          : Colors.white.withValues(alpha: 0.07),
+                          ? null
+                          : Colors.white.withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: pageNum == page
+                            ? Colors.transparent
+                            : Colors.white.withValues(alpha: 0.07),
+                      ),
+                      boxShadow: pageNum == page
+                          ? [
+                              BoxShadow(
+                                color: _kOrange.withValues(alpha: 0.3),
+                                blurRadius: 10,
+                              ),
+                            ]
+                          : null,
                     ),
-                    boxShadow: pageNum == page
-                        ? [
-                            BoxShadow(
-                              color: _kOrange.withValues(alpha: 0.3),
-                              blurRadius: 10,
-                            ),
-                          ]
-                        : null,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '$pageNum',
-                    style: TextStyle(
-                      color: pageNum == page
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.4),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$pageNum',
+                      style: TextStyle(
+                        color: pageNum == page
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.4),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }),
-          const SizedBox(width: 4),
-          _PageBtn(
-            label: 'Next →',
-            enabled: page < totalPages,
-            onTap: () => onPageChanged(page + 1),
-          ),
-        ],
+              );
+            }),
+            const SizedBox(width: 4),
+            _PageBtn(
+              label: 'Next →',
+              enabled: page < totalPages,
+              onTap: () => onPageChanged(page + 1),
+            ),
+          ],
+        ),
       ),
     );
   }
