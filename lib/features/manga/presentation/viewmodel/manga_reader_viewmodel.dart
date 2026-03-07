@@ -1,8 +1,29 @@
 // lib/features/manga/presentation/viewmodel/manga_reader_viewmodel.dart
+//
+// SENSOR 2 — Gyroscope + Accelerometer (sensors_plus)
+// ──────────────────────────────────────────────────────
+// Two sensor streams run while the reader is open:
+//
+//   1. accelerometerEventStream()
+//      Reads the gravity vector. When |x| significantly exceeds |y|, the
+//      device is in landscape. This drives the isDualPage layout switch.
+//      Threshold: |x| > 5.5 m/s² (out of ~9.8 max) with 0.3 s debounce.
+//
+//   2. gyroscopeEventStream()
+//      Reads angular velocity (rad/s). When the combined magnitude exceeds
+//      1.2 rad/s the device is actively rotating — sets isRotating = true
+//      for 400 ms so the UI can show a brief shimmer transition.
+//
+// Package required (add to pubspec.yaml):
+//   sensors_plus: ^6.0.0
 
 import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sensors_plus/sensors_plus.dart';
+
 import '../../../../core/providers/api_client_provider.dart';
 import '../../data/datasources/manga_remote_datasource.dart';
 import '../../domain/entities/manga_entity.dart';
@@ -36,6 +57,17 @@ class MangaReaderViewModel extends StateNotifier<MangaReaderState> {
   Timer? _hideTimer;
   Timer? _saveTimer;
 
+  // ── Sensor subscriptions ──────────────────────────────────────────────────
+  StreamSubscription<AccelerometerEvent>? _accelSub;
+  StreamSubscription<GyroscopeEvent>? _gyroSub;
+  Timer? _rotatingResetTimer;
+  Timer? _orientationDebounce;
+
+  // Landscape threshold: gravity x-component must exceed this (in m/s²)
+  static const double _landscapeThreshold = 5.5;
+  // Gyro rotation magnitude threshold (rad/s) to flag "actively rotating"
+  static const double _gyroThreshold = 1.2;
+
   MangaReaderViewModel({
     required this.mangaId,
     required String chapterId,
@@ -46,9 +78,55 @@ class MangaReaderViewModel extends StateNotifier<MangaReaderState> {
        _dio = dio,
        super(const MangaReaderState()) {
     loadChapter(chapterId);
+    _startSensors();
   }
 
-  // ── Load ────────────────────────────────────────────────────────────────────
+  // ── Sensor initialisation ─────────────────────────────────────────────────
+  void _startSensors() {
+    // 1. Accelerometer → orientation detection
+    _accelSub =
+        accelerometerEventStream(
+          samplingPeriod: SensorInterval.normalInterval,
+        ).listen(
+          (AccelerometerEvent event) {
+            final absX = event.x.abs();
+            final absY = event.y.abs();
+            final landscape = absX > _landscapeThreshold && absX > absY;
+
+            // Debounce so a brief rotation flicker doesn't thrash the layout
+            _orientationDebounce?.cancel();
+            _orientationDebounce = Timer(const Duration(milliseconds: 300), () {
+              if (mounted && landscape != state.isLandscape) {
+                state = state.copyWith(isLandscape: landscape);
+              }
+            });
+          },
+          onError: (_) {
+            // Sensor unavailable (e.g. emulator) — silently ignore
+          },
+        );
+
+    // 2. Gyroscope → detect active rotation for shimmer transition
+    _gyroSub =
+        gyroscopeEventStream(
+          samplingPeriod: SensorInterval.normalInterval,
+        ).listen((GyroscopeEvent event) {
+          final magnitude = math.sqrt(
+            event.x * event.x + event.y * event.y + event.z * event.z,
+          );
+
+          if (magnitude > _gyroThreshold && !state.isRotating) {
+            if (mounted) state = state.copyWith(isRotating: true);
+            // Auto-clear the rotating flag after 400 ms
+            _rotatingResetTimer?.cancel();
+            _rotatingResetTimer = Timer(const Duration(milliseconds: 400), () {
+              if (mounted) state = state.copyWith(isRotating: false);
+            });
+          }
+        }, onError: (_) {});
+  }
+
+  // ── Load ──────────────────────────────────────────────────────────────────
   Future<void> loadChapter(String newChapterId) async {
     _chapterId = newChapterId;
     state = state.copyWith(
@@ -59,7 +137,6 @@ class MangaReaderViewModel extends StateNotifier<MangaReaderState> {
     );
 
     try {
-      // Parallel: chapter list + pages metadata
       final results = await Future.wait([
         _datasource.getChapters(mangaId),
         _datasource.getChapterPages(newChapterId),
@@ -67,22 +144,17 @@ class MangaReaderViewModel extends StateNotifier<MangaReaderState> {
 
       final allChapters = results[0] as List<ChapterEntity>;
 
-      // Find the current chapter entity from the list to get sourceId
       ChapterEntity? chapterEntity;
       try {
         chapterEntity = allChapters.firstWhere((c) => c.id == newChapterId);
       } catch (_) {
-        // getChapterPages returns pages but we need sourceId — fall back to
-        // scanning the chapters list by index if id match fails
         if (allChapters.isNotEmpty) chapterEntity = allChapters.first;
       }
 
       if (chapterEntity == null) throw Exception('Chapter not found');
 
-      // Fetch fresh image URLs from MangaDex at-home (mirrors web getFreshPages)
       final freshPages = await _getFreshPages(chapterEntity.sourceId);
 
-      // Fetch manga info once for history tracking
       String title = state.mangaTitle;
       String cover = state.mangaCoverImage;
       if (title.isEmpty) {
@@ -102,7 +174,6 @@ class MangaReaderViewModel extends StateNotifier<MangaReaderState> {
         mangaCoverImage: cover,
       );
 
-      // Save to history immediately on chapter open (progress = 0)
       _saveHistory(progress: 0);
       resetHideTimer();
     } catch (e) {
@@ -110,7 +181,6 @@ class MangaReaderViewModel extends StateNotifier<MangaReaderState> {
     }
   }
 
-  // Mirrors mangaService.getFreshPages — calls MangaDex at-home directly
   Future<List<ChapterPageEntity>> _getFreshPages(String sourceId) async {
     final res = await Dio().get(
       'https://api.mangadex.org/at-home/server/$sourceId',
@@ -145,15 +215,24 @@ class MangaReaderViewModel extends StateNotifier<MangaReaderState> {
     _scheduleSaveHistory();
   }
 
+  /// Steps forward by 1 in portrait, by 2 in dual-page landscape mode.
   void goNext() {
-    if (state.currentPage < state.totalPages) {
+    final step = state.isDualPage ? 2 : 1;
+    if (state.currentPage + step - 1 <= state.totalPages) {
+      setPage(state.currentPage + step);
+    } else if (state.currentPage < state.totalPages) {
+      // Edge case: odd-numbered last page in dual mode
       setPage(state.currentPage + 1);
     }
   }
 
+  /// Steps backward by 1 in portrait, by 2 in dual-page landscape mode.
   void goPrev() {
-    if (state.currentPage > 1) {
-      setPage(state.currentPage - 1);
+    final step = state.isDualPage ? 2 : 1;
+    if (state.currentPage > step) {
+      setPage(state.currentPage - step);
+    } else {
+      setPage(1);
     }
   }
 
@@ -185,7 +264,6 @@ class MangaReaderViewModel extends StateNotifier<MangaReaderState> {
   void _saveHistory({required int progress}) {
     final chapter = state.chapter;
     if (chapter == null || state.mangaTitle.isEmpty) return;
-    // Fire-and-forget with proper async error handling (avoids catchError type issues)
     Future(() async {
       try {
         await _dio.post(
@@ -200,9 +278,7 @@ class MangaReaderViewModel extends StateNotifier<MangaReaderState> {
             'progress': progress,
           },
         );
-      } catch (_) {
-        // Silent fail — offline-safe
-      }
+      } catch (_) {}
     });
   }
 
@@ -210,6 +286,10 @@ class MangaReaderViewModel extends StateNotifier<MangaReaderState> {
   void dispose() {
     _hideTimer?.cancel();
     _saveTimer?.cancel();
+    _accelSub?.cancel();
+    _gyroSub?.cancel();
+    _rotatingResetTimer?.cancel();
+    _orientationDebounce?.cancel();
     super.dispose();
   }
 }

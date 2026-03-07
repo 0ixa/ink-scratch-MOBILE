@@ -1,7 +1,26 @@
 // lib/features/dashboard/presentation/pages/library_screen.dart
+//
+// SENSOR 1 — Biometric / Fingerprint lock
+// ─────────────────────────────────────────
+// The library is gated behind device biometrics (fingerprint, face-ID,
+// device PIN as fallback).  On mount we call _authenticate(); if the user
+// cancels or fails we show a locked-state UI with a "Try Again" button.
+// The library content is only rendered once _isAuthenticated == true.
+//
+// Package required (add to pubspec.yaml):
+//   local_auth: ^2.3.0
+//
+// Android – add to android/app/src/main/AndroidManifest.xml:
+//   <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+//
+// iOS – add to ios/Runner/Info.plist:
+//   <key>NSFaceIDUsageDescription</key>
+//   <string>Authenticate to access your library</string>
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../../../manga/data/providers/manga_providers.dart';
 import '../../../manga/domain/entities/library_manga.dart';
@@ -50,32 +69,102 @@ class LibraryScreen extends ConsumerStatefulWidget {
   ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
 }
 
-class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+class _LibraryScreenState extends ConsumerState<LibraryScreen>
+    with SingleTickerProviderStateMixin {
+  // ── Biometric state ───────────────────────────────────────────────────────
+  final _auth = LocalAuthentication();
+  bool _isAuthenticated = false;
+  bool _isAuthenticating = false;
+  String? _authError;
+
+  // ── Library state ─────────────────────────────────────────────────────────
   final _searchCtrl = TextEditingController();
   _Filter _filter = _Filter.all;
   _Sort _sort = _Sort.addedAt;
   bool _isGrid = true;
   String _query = '';
-
   String? _removeId;
   bool _removing = false;
+
+  // ── Pulse animation for the lock icon ─────────────────────────────────────
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulseAnim;
 
   @override
   void initState() {
     super.initState();
-    // Refresh every time this screen mounts so we always have
-    // up-to-date data — covers first load after login
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    _pulseAnim = Tween<double>(
+      begin: 0.6,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _authenticate());
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  // ── Biometric authentication ──────────────────────────────────────────────
+  Future<void> _authenticate() async {
+    setState(() {
+      _isAuthenticating = true;
+      _authError = null;
+    });
+
+    try {
+      final canCheck = await _auth.canCheckBiometrics;
+      final isDeviceSupported = await _auth.isDeviceSupported();
+
+      if (!canCheck && !isDeviceSupported) {
+        setState(() {
+          _isAuthenticated = true;
+          _isAuthenticating = false;
+        });
+        _loadLibrary();
+        return;
+      }
+
+      // ── FIX: removed AuthenticationOptions (requires local_auth ≥2.2.0)
+      // Default behaviour already uses stickyAuth + allows PIN fallback.
+      final didAuthenticate = await _auth.authenticate(
+        localizedReason: 'Authenticate to access your library',
+      );
+
+      if (didAuthenticate) {
+        setState(() {
+          _isAuthenticated = true;
+          _isAuthenticating = false;
+        });
+        _loadLibrary();
+      } else {
+        setState(() {
+          _isAuthenticating = false;
+          _authError = 'Authentication cancelled. Tap the button to try again.';
+        });
+      }
+    } on PlatformException catch (e) {
+      setState(() {
+        _isAuthenticating = false;
+        _authError = e.message ?? 'Authentication failed. Please try again.';
+      });
+    }
+  }
+
+  void _loadLibrary() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(libraryProvider);
     });
   }
 
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
+  // ── Remove ────────────────────────────────────────────────────────────────
   Future<void> _doRemove(String mangaId) async {
     setState(() => _removing = true);
     await ref.read(libraryProvider.notifier).remove(mangaId);
@@ -85,8 +174,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     });
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    if (!_isAuthenticated) {
+      return _LockedScreen(
+        isAuthenticating: _isAuthenticating,
+        errorMessage: _authError,
+        pulseAnim: _pulseAnim,
+        onTryAgain: _authenticate,
+      );
+    }
+
     final libraryAsync = ref.watch(libraryProvider);
 
     return Stack(
@@ -111,7 +210,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   child: CustomPaint(painter: _DotPainter()),
                 ),
               ),
-
               CustomScrollView(
                 physics: const BouncingScrollPhysics(),
                 slivers: [
@@ -119,8 +217,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     isGrid: _isGrid,
                     onToggleView: () => setState(() => _isGrid = !_isGrid),
                   ),
-
-                  // Hero + stats
                   SliverToBoxAdapter(
                     child: libraryAsync.when(
                       loading: () => const SizedBox(height: 120),
@@ -128,14 +224,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       data: (library) => _HeroStats(library: library),
                     ),
                   ),
-
-                  // Search + filters + sort
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                       child: Column(
                         children: [
-                          // Search bar
                           Container(
                             height: 48,
                             decoration: BoxDecoration(
@@ -186,8 +279,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                             ),
                           ),
                           const SizedBox(height: 10),
-
-                          // Filter pills + sort in one scrollable row
                           SizedBox(
                             height: 36,
                             child: ListView(
@@ -246,7 +337,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                     ),
                                   );
                                 }),
-                                // Sort pill
                                 GestureDetector(
                                   onTap: () => _showSortSheet(context),
                                   child: Container(
@@ -298,8 +388,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       ),
                     ),
                   ),
-
-                  // Content
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 48),
                     sliver: libraryAsync.when(
@@ -335,7 +423,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             ],
           ),
         ),
-
         if (_removeId != null)
           _RemoveModal(
             mangaId: _removeId!,
@@ -495,6 +582,218 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _glow(Color c, double sz, double op) => Container(
+    width: sz,
+    height: sz,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: RadialGradient(
+        colors: [
+          c.withValues(alpha: op),
+          Colors.transparent,
+        ],
+      ),
+    ),
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOCKED SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+class _LockedScreen extends StatelessWidget {
+  final bool isAuthenticating;
+  final String? errorMessage;
+  final Animation<double> pulseAnim;
+  final VoidCallback onTryAgain;
+
+  const _LockedScreen({
+    required this.isAuthenticating,
+    required this.errorMessage,
+    required this.pulseAnim,
+    required this.onTryAgain,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _kInk,
+      body: Stack(
+        children: [
+          Positioned(top: -80, left: -60, child: _glow(_kOrange, 320, 0.12)),
+          Positioned(bottom: 80, right: -60, child: _glow(_kRed, 260, 0.08)),
+          Opacity(
+            opacity: 0.025,
+            child: SizedBox.expand(child: CustomPaint(painter: _DotPainter())),
+          ),
+          SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FadeTransition(
+                      opacity: pulseAnim,
+                      child: Container(
+                        width: 96,
+                        height: 96,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              _kOrange.withValues(alpha: 0.18),
+                              Colors.transparent,
+                            ],
+                          ),
+                          border: Border.all(
+                            color: _kOrange.withValues(alpha: 0.25),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Center(
+                          child: isAuthenticating
+                              ? SizedBox(
+                                  width: 36,
+                                  height: 36,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor: AlwaysStoppedAnimation(
+                                      _kOrange,
+                                    ),
+                                  ),
+                                )
+                              : Icon(
+                                  errorMessage != null
+                                      ? Icons.fingerprint
+                                      : Icons.lock_outline_rounded,
+                                  size: 44,
+                                  color: errorMessage != null
+                                      ? _kOrange
+                                      : Colors.white.withValues(alpha: 0.5),
+                                ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    ShaderMask(
+                      shaderCallback: (b) => const LinearGradient(
+                        colors: [_kOrange, _kRed],
+                      ).createShader(b),
+                      child: Text(
+                        isAuthenticating ? 'AUTHENTICATING…' : 'LIBRARY LOCKED',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 3,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      isAuthenticating
+                          ? 'Verifying your identity…'
+                          : 'Your library is private.\nUse biometrics or your device PIN to unlock.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.35),
+                        fontSize: 13,
+                        height: 1.6,
+                        fontFamily: 'monospace',
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0x1AE63946),
+                          border: Border.all(color: const Color(0x4DE63946)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.warning_amber_rounded,
+                              color: Color(0xFFF87171),
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                errorMessage!,
+                                style: const TextStyle(
+                                  color: Color(0xFFF87171),
+                                  fontSize: 12,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 32),
+                    if (!isAuthenticating)
+                      GestureDetector(
+                        onTap: onTryAgain,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 36,
+                            vertical: 16,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [_kOrange, _kRed],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _kOrange.withValues(alpha: 0.35),
+                                blurRadius: 20,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.fingerprint,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                errorMessage != null
+                                    ? 'TRY AGAIN'
+                                    : 'AUTHENTICATE',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1443,7 +1742,9 @@ class _CoverState extends State<_Cover> {
   }
 
   Widget _fallback() {
-    if (widget.title.isEmpty) return Container(color: const Color(0xFF111118));
+    if (widget.title.isEmpty) {
+      return Container(color: const Color(0xFF111118));
+    }
     final c = _gradients[widget.title.codeUnitAt(0) % _gradients.length];
     return Container(
       decoration: BoxDecoration(

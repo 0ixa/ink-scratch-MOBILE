@@ -20,6 +20,15 @@ class MangaReaderState {
   final String mangaTitle;
   final String mangaCoverImage;
 
+  // ── Gyroscope / orientation sensor ───────────────────────────────────────
+  /// True when the device is physically in landscape (detected via sensors).
+  /// Triggers the 2-page spread layout in paged mode.
+  final bool isLandscape;
+
+  /// True while the device is actively rotating (gyroscope angular velocity
+  /// exceeds the threshold). Used to play the transition shimmer.
+  final bool isRotating;
+
   const MangaReaderState({
     this.chapter,
     this.pages = const [],
@@ -33,6 +42,8 @@ class MangaReaderState {
     this.settingsOpen = false,
     this.mangaTitle = '',
     this.mangaCoverImage = '',
+    this.isLandscape = false,
+    this.isRotating = false,
   });
 
   int get totalPages => pages.length;
@@ -55,6 +66,10 @@ class MangaReaderState {
         : null;
   }
 
+  /// Whether the dual-page spread is currently active.
+  /// Only kicks in when the device is landscape AND the reader is in paged mode.
+  bool get isDualPage => isLandscape && readMode == ReadMode.paged;
+
   MangaReaderState copyWith({
     ChapterEntity? chapter,
     List<ChapterPageEntity>? pages,
@@ -69,6 +84,8 @@ class MangaReaderState {
     bool? settingsOpen,
     String? mangaTitle,
     String? mangaCoverImage,
+    bool? isLandscape,
+    bool? isRotating,
   }) {
     return MangaReaderState(
       chapter: chapter ?? this.chapter,
@@ -83,6 +100,8 @@ class MangaReaderState {
       settingsOpen: settingsOpen ?? this.settingsOpen,
       mangaTitle: mangaTitle ?? this.mangaTitle,
       mangaCoverImage: mangaCoverImage ?? this.mangaCoverImage,
+      isLandscape: isLandscape ?? this.isLandscape,
+      isRotating: isRotating ?? this.isRotating,
     );
   }
 }

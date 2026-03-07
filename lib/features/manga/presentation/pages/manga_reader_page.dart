@@ -1,4 +1,17 @@
 // lib/features/manga/presentation/pages/manga_reader_page.dart
+//
+// SENSOR 2 — Gyroscope dual-page spread
+// ──────────────────────────────────────
+// When the gyroscope + accelerometer detect landscape orientation,
+// `state.isDualPage` becomes true and the paged reader switches from
+// showing 1 page to a 2-page spread (_DualPageReader), matching the
+// traditional manga tankobon / physical book experience.
+//
+// Layout logic:
+//   • Portrait  → 1 page, navigation ±1
+//   • Landscape → 2 pages side by side, navigation ±2
+//   • Covers:    first page (p.1) shown solo if total pages is odd
+//   • Indicator: a landscape badge appears in the top-bar area
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,7 +20,7 @@ import '../../domain/entities/manga_entity.dart';
 import '../state/manga_reader_state.dart';
 import '../viewmodel/manga_reader_viewmodel.dart';
 
-// ── Colour constants (matches existing app palette) ───────────────────────────
+// ── Colour constants ──────────────────────────────────────────────────────────
 const _kOrange = Color(0xFFFF6B35);
 const _kRed = Color(0xFFE63946);
 const _kInk = Color(0xFF0A0A0F);
@@ -33,7 +46,6 @@ class _MangaReaderPageState extends ConsumerState<MangaReaderPage> {
   late String _currentChapterId;
   final _scrollController = ScrollController();
 
-  // Convenience getter so we don't repeat the args record everywhere
   ({String mangaId, String chapterId}) get _args =>
       (mangaId: widget.mangaId, chapterId: _currentChapterId);
 
@@ -41,12 +53,24 @@ class _MangaReaderPageState extends ConsumerState<MangaReaderPage> {
   void initState() {
     super.initState();
     _currentChapterId = widget.chapterId;
+    // Allow all orientations so gyroscope can detect landscape naturally
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    // Restore portrait-only when leaving the reader
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
@@ -79,7 +103,7 @@ class _MangaReaderPageState extends ConsumerState<MangaReaderPage> {
         onTap: vm.resetHideTimer,
         child: Stack(
           children: [
-            // ── Main reader content ────────────────────────────────────────
+            // ── Main reader ────────────────────────────────────────────────
             state.readMode == ReadMode.vertical
                 ? _VerticalReader(
                     state: state,
@@ -88,6 +112,15 @@ class _MangaReaderPageState extends ConsumerState<MangaReaderPage> {
                     mangaId: widget.mangaId,
                     onChapterNav: _navigateToChapter,
                   )
+                : state.isDualPage
+                // ── LANDSCAPE: 2-page spread ─────────────────────────────
+                ? _DualPageReader(
+                    state: state,
+                    vm: vm,
+                    mangaId: widget.mangaId,
+                    onChapterNav: _navigateToChapter,
+                  )
+                // ── PORTRAIT: single page ────────────────────────────────
                 : _PagedReader(
                     state: state,
                     vm: vm,
@@ -98,7 +131,7 @@ class _MangaReaderPageState extends ConsumerState<MangaReaderPage> {
             // ── Top bar ────────────────────────────────────────────────────
             _TopBar(state: state, vm: vm, mangaId: widget.mangaId),
 
-            // ── Bottom bar (paged mode only) ───────────────────────────────
+            // ── Bottom bar (paged & dual-page modes) ───────────────────────
             if (state.readMode == ReadMode.paged)
               _BottomBar(
                 state: state,
@@ -106,7 +139,225 @@ class _MangaReaderPageState extends ConsumerState<MangaReaderPage> {
                 mangaId: widget.mangaId,
                 onChapterNav: _navigateToChapter,
               ),
+
+            // ── Rotation shimmer overlay (briefly on orientation change) ───
+            if (state.isRotating) const _RotationOverlay(),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DUAL PAGE READER  (landscape — 2 pages side by side)
+// ─────────────────────────────────────────────────────────────────────────────
+class _DualPageReader extends StatelessWidget {
+  final MangaReaderState state;
+  final MangaReaderViewModel vm;
+  final String mangaId;
+  final void Function(String) onChapterNav;
+
+  const _DualPageReader({
+    required this.state,
+    required this.vm,
+    required this.mangaId,
+    required this.onChapterNav,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top + 60.0;
+    final pages = state.pages;
+    if (pages.isEmpty) return const SizedBox.shrink();
+
+    // Page spread calculation:
+    // p1Index is always odd-0-indexed: 0,2,4…
+    // For page 1 we show it solo (cover convention). For everything else 2 at a time.
+    final pageIndex = (state.currentPage - 1).clamp(0, pages.length - 1);
+    final isFirst = pageIndex == 0;
+
+    // Left page
+    final leftPage = pages[pageIndex];
+    // Right page — only if it exists and this isn't the solo first page
+    final hasRight = !isFirst && pageIndex + 1 < pages.length;
+    final rightPage = hasRight ? pages[pageIndex + 1] : null;
+
+    final screenW = MediaQuery.of(context).size.width;
+    final halfW = screenW / 2;
+
+    return Stack(
+      children: [
+        // ── Spread ──────────────────────────────────────────────────────────
+        Positioned.fill(
+          child: Padding(
+            padding: EdgeInsets.only(top: topPad, bottom: 60),
+            child: Row(
+              children: [
+                // Left page
+                SizedBox(
+                  width: rightPage != null ? halfW : screenW,
+                  child: _MangaPageImage(
+                    page: leftPage,
+                    fitMode: state.fitMode,
+                    forceWidth: rightPage != null ? halfW : screenW,
+                  ),
+                ),
+
+                // Right page
+                if (rightPage != null)
+                  SizedBox(
+                    width: halfW,
+                    child: _MangaPageImage(
+                      page: rightPage,
+                      fitMode: state.fitMode,
+                      forceWidth: halfW,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        // Centre divider line
+        if (rightPage != null)
+          Positioned(
+            left: halfW - 0.5,
+            top: topPad,
+            bottom: 60,
+            child: Container(
+              width: 1,
+              color: Colors.white.withValues(alpha: 0.06),
+            ),
+          ),
+
+        // ── Left tap zone → prev spread ──────────────────────────────────
+        Positioned(
+          left: 0,
+          top: topPad,
+          bottom: 0,
+          width: screenW * 0.25,
+          child: GestureDetector(
+            onTap: vm.goPrev,
+            child: const ColoredBox(color: Colors.transparent),
+          ),
+        ),
+
+        // ── Right tap zone → next spread / next chapter ───────────────────
+        Positioned(
+          right: 0,
+          top: topPad,
+          bottom: 0,
+          width: screenW * 0.25,
+          child: GestureDetector(
+            onTap: () {
+              final nextPageIdx = pageIndex + (isFirst ? 1 : 2);
+              if (nextPageIdx < pages.length) {
+                vm.goNext();
+              } else if (state.nextChapter != null) {
+                onChapterNav(state.nextChapter!.id);
+              }
+            },
+            child: const ColoredBox(color: Colors.transparent),
+          ),
+        ),
+
+        // ── Left arrow ────────────────────────────────────────────────────
+        AnimatedOpacity(
+          opacity: state.uiVisible ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 300),
+          child: Positioned(
+            left: 12,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: _NavArrow(
+                icon: Icons.chevron_left_rounded,
+                enabled: state.currentPage > 1,
+                onTap: vm.goPrev,
+              ),
+            ),
+          ),
+        ),
+
+        // ── Right arrow ───────────────────────────────────────────────────
+        AnimatedOpacity(
+          opacity: state.uiVisible ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 300),
+          child: Positioned(
+            right: 12,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: _NavArrow(
+                icon: Icons.chevron_right_rounded,
+                enabled:
+                    state.currentPage < state.totalPages ||
+                    state.nextChapter != null,
+                onTap: () {
+                  final nextPageIdx = pageIndex + (isFirst ? 1 : 2);
+                  if (nextPageIdx < pages.length) {
+                    vm.goNext();
+                  } else if (state.nextChapter != null) {
+                    onChapterNav(state.nextChapter!.id);
+                  }
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROTATION OVERLAY  (brief shimmer when device rotates)
+// ─────────────────────────────────────────────────────────────────────────────
+class _RotationOverlay extends StatelessWidget {
+  const _RotationOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment.center,
+            radius: 1.2,
+            colors: [_kOrange.withValues(alpha: 0.08), Colors.transparent],
+          ),
+        ),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: _kOrange.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.screen_rotation_rounded,
+                  color: _kOrange,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'ROTATING…',
+                  style: TextStyle(
+                    color: _kOrange.withValues(alpha: 0.8),
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    letterSpacing: 2,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -206,7 +457,7 @@ class _TopBar extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        'Page ${state.currentPage} of ${state.totalPages}',
+                        _pageLabel(state),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.4),
                           fontSize: 11,
@@ -215,6 +466,45 @@ class _TopBar extends StatelessWidget {
                     ],
                   ),
                 ),
+
+                // ── Landscape dual-page badge ──────────────────────────────
+                if (state.isDualPage) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _kOrange.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _kOrange.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.auto_stories_rounded,
+                          color: _kOrange,
+                          size: 12,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '2-PAGE',
+                          style: const TextStyle(
+                            color: _kOrange,
+                            fontSize: 9,
+                            fontFamily: 'monospace',
+                            letterSpacing: 1,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
 
                 // Page counter pill
                 Container(
@@ -233,7 +523,7 @@ class _TopBar extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '${state.currentPage}',
+                        _pageCounterLeft(state),
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
@@ -286,11 +576,30 @@ class _TopBar extends StatelessWidget {
             ),
           ),
 
-          // Settings panel (inline, below the bar)
+          // Settings panel
           if (state.settingsOpen) _SettingsPanel(state: state, vm: vm),
         ],
       ),
     );
+  }
+
+  /// "Page 1-2 of 24" in dual mode, "Page 3 of 24" in single mode
+  String _pageLabel(MangaReaderState s) {
+    if (s.isDualPage && s.currentPage < s.totalPages) {
+      final p1 = s.currentPage;
+      final p2 = (s.currentPage == 1) ? 1 : (s.currentPage + 1);
+      final capped = p2.clamp(1, s.totalPages);
+      return 'Pages $p1–$capped of ${s.totalPages}';
+    }
+    return 'Page ${s.currentPage} of ${s.totalPages}';
+  }
+
+  /// Shows "1–2" in the counter pill when dual-page
+  String _pageCounterLeft(MangaReaderState s) {
+    if (s.isDualPage && s.currentPage < s.totalPages && s.currentPage > 1) {
+      return '${s.currentPage}–${(s.currentPage + 1).clamp(1, s.totalPages)}';
+    }
+    return '${s.currentPage}';
   }
 
   String _fmtNum(double n) =>
@@ -360,6 +669,51 @@ class _SettingsPanel extends StatelessWidget {
                 onTap: () => vm.setFitMode(FitMode.original),
               ),
             ],
+          ),
+          // Sensor info row
+          const SizedBox(height: 14),
+          _settingsLabel('ORIENTATION SENSOR'),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: state.isDualPage
+                  ? _kOrange.withValues(alpha: 0.06)
+                  : Colors.white.withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: state.isDualPage
+                    ? _kOrange.withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.07),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  state.isDualPage
+                      ? Icons.screen_rotation_alt_rounded
+                      : Icons.stay_current_portrait_rounded,
+                  size: 14,
+                  color: state.isDualPage
+                      ? _kOrange
+                      : Colors.white.withValues(alpha: 0.3),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  state.isDualPage
+                      ? 'Landscape detected — 2-page spread active'
+                      : 'Portrait — rotate device for 2-page spread',
+                  style: TextStyle(
+                    color: state.isDualPage
+                        ? _kOrange.withValues(alpha: 0.8)
+                        : Colors.white.withValues(alpha: 0.3),
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 4),
         ],
@@ -433,7 +787,7 @@ class _SettingsChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BOTTOM BAR  (paged mode)
+// BOTTOM BAR  (paged + dual-page modes)
 // ─────────────────────────────────────────────────────────────────────────────
 class _BottomBar extends StatelessWidget {
   final MangaReaderState state;
@@ -518,7 +872,6 @@ class _BottomBar extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            // Prev / page count / next chapter nav
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -545,13 +898,34 @@ class _BottomBar extends StatelessWidget {
                   )
                 else
                   const SizedBox(),
-                Text(
-                  'Page ${state.currentPage} of $totalPages',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    fontSize: 11,
-                  ),
-                ),
+                // Dual-page label in bottom bar too
+                state.isDualPage
+                    ? Row(
+                        children: [
+                          Icon(
+                            Icons.auto_stories_rounded,
+                            size: 11,
+                            color: _kOrange.withValues(alpha: 0.5),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Pages ${state.currentPage}–'
+                            '${(state.currentPage + 1).clamp(1, totalPages)} of $totalPages',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ],
+                      )
+                    : Text(
+                        'Page ${state.currentPage} of $totalPages',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          fontSize: 11,
+                        ),
+                      ),
                 if (state.nextChapter != null)
                   GestureDetector(
                     onTap: () => onChapterNav(state.nextChapter!.id),
@@ -585,7 +959,7 @@ class _BottomBar extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VERTICAL READER
+// VERTICAL READER  (unchanged from original)
 // ─────────────────────────────────────────────────────────────────────────────
 class _VerticalReader extends StatelessWidget {
   final MangaReaderState state;
@@ -654,7 +1028,6 @@ class _VisibilityAwarePageState extends State<_VisibilityAwarePage> {
   }
 }
 
-// Lightweight visibility tracker using a LayoutBuilder + post-frame callback
 class VisibilityDetectorShim extends StatefulWidget {
   final Widget child;
   final VoidCallback onVisible;
@@ -686,7 +1059,6 @@ class _VisibilityDetectorShimState extends State<VisibilityDetectorShim> {
     if (box == null || !box.attached) return;
     final offset = box.localToGlobal(Offset.zero);
     final screenH = MediaQuery.of(context).size.height;
-    // Fire when the widget's vertical centre is in the middle half of screen
     final centre = offset.dy + box.size.height / 2;
     if (centre > screenH * 0.25 && centre < screenH * 0.75) {
       widget.onVisible();
@@ -695,7 +1067,7 @@ class _VisibilityDetectorShimState extends State<VisibilityDetectorShim> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PAGED READER
+// PAGED READER  (portrait — single page, unchanged from original)
 // ─────────────────────────────────────────────────────────────────────────────
 class _PagedReader extends StatelessWidget {
   final MangaReaderState state;
@@ -720,7 +1092,6 @@ class _PagedReader extends StatelessWidget {
 
     return Stack(
       children: [
-        // Page image
         Positioned.fill(
           child: Padding(
             padding: EdgeInsets.only(top: topPad),
@@ -731,7 +1102,6 @@ class _PagedReader extends StatelessWidget {
           ),
         ),
 
-        // Left tap zone → prev page
         Positioned(
           left: 0,
           top: topPad,
@@ -743,7 +1113,6 @@ class _PagedReader extends StatelessWidget {
           ),
         ),
 
-        // Right tap zone → next page / next chapter
         Positioned(
           right: 0,
           top: topPad,
@@ -761,7 +1130,6 @@ class _PagedReader extends StatelessWidget {
           ),
         ),
 
-        // Left arrow button
         AnimatedOpacity(
           opacity: state.uiVisible ? 1.0 : 0.0,
           duration: const Duration(milliseconds: 300),
@@ -779,7 +1147,6 @@ class _PagedReader extends StatelessWidget {
           ),
         ),
 
-        // Right arrow button
         AnimatedOpacity(
           opacity: state.uiVisible ? 1.0 : 0.0,
           duration: const Duration(milliseconds: 300),
@@ -847,8 +1214,13 @@ class _NavArrow extends StatelessWidget {
 class _MangaPageImage extends StatefulWidget {
   final ChapterPageEntity page;
   final FitMode fitMode;
+  final double? forceWidth; // override width for dual-page layout
 
-  const _MangaPageImage({required this.page, required this.fitMode});
+  const _MangaPageImage({
+    required this.page,
+    required this.fitMode,
+    this.forceWidth,
+  });
 
   @override
   State<_MangaPageImage> createState() => _MangaPageImageState();
@@ -871,7 +1243,7 @@ class _MangaPageImageState extends State<_MangaPageImage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenW = MediaQuery.of(context).size.width;
+    final screenW = widget.forceWidth ?? MediaQuery.of(context).size.width;
 
     if (_error) {
       return Container(
@@ -988,7 +1360,7 @@ class _ChapterEndCard extends StatelessWidget {
                   isAccent: false,
                   onTap: () => onChapterNav(state.prevChapter!.id),
                 ),
-              if (state.prevChapter != null && (state.nextChapter != null))
+              if (state.prevChapter != null && state.nextChapter != null)
                 const SizedBox(width: 12),
               if (state.nextChapter != null)
                 _EndButton(
