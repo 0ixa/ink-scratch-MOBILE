@@ -6,6 +6,9 @@ import 'library_screen.dart';
 import 'profile_screen.dart';
 import '../../../manga/presentation/pages/manga_browse_page.dart';
 import '../../../manga/data/providers/manga_providers.dart';
+import '../../../auth/presentation/pages/login_page.dart';
+import '../../../auth/presentation/state/auth_state.dart';
+import '../../../auth/presentation/view_model/auth_viewmodel_provider.dart';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 const _kOrange = Color(0xFFFF6B35);
@@ -28,8 +31,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   void _switchToLibrary() => _onTabTap(2);
 
   void _onTabTap(int index) {
-    // Invalidate library every time the user taps the Library tab
-    // This ensures fresh data after login or after adding/removing manga
     if (index == 2 && _prevIndex != 2) {
       ref.invalidate(libraryProvider);
     }
@@ -39,8 +40,28 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     });
   }
 
+  // ── Redirect to login when auth state becomes unauthenticated ─────────────
+  void _onAuthChanged(AuthState? previous, AuthState next) {
+    if (!next.isAuthenticated && previous?.isAuthenticated == true) {
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (ctx, a, _) => const LoginPage(),
+          transitionsBuilder: (ctx, a, _, child) =>
+              FadeTransition(opacity: a, child: child),
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+        (route) => false, // remove all previous routes
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Listen for logout → redirect
+    ref.listen(authViewModelProvider, _onAuthChanged);
+
     final screens = [
       DashboardScreen(onBrowseTap: _switchToBrowse, onLibraryTap: null),
       const MangaBrowsePage(),
