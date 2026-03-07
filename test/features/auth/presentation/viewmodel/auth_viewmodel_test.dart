@@ -112,20 +112,13 @@ class _FakeUpdateProfileUseCase implements UpdateProfileUseCase {
 
 class _TestAuthViewModel extends AuthViewModel {
   _TestAuthViewModel({
-    required LoginUseCase loginUseCase,
-    required RegisterUseCase registerUseCase,
-    required LogoutUseCase logoutUseCase,
-    required UpdateProfileUseCase updateProfileUseCase,
-    required AuthRepository authRepository,
-    void Function(bool)? onAuthChanged,
-  }) : super(
-         loginUseCase: loginUseCase,
-         registerUseCase: registerUseCase,
-         logoutUseCase: logoutUseCase,
-         updateProfileUseCase: updateProfileUseCase,
-         authRepository: authRepository,
-         onAuthChanged: onAuthChanged,
-       );
+    required super.loginUseCase,
+    required super.registerUseCase,
+    required super.logoutUseCase,
+    required super.updateProfileUseCase,
+    required super.authRepository,
+    super.onAuthChanged,
+  });
 
   @override
   Future<void> checkCurrentUser() async {} // skip Hive
@@ -148,7 +141,7 @@ _TestAuthViewModel _buildVM({
   void Function(bool)? onAuthChanged,
 }) {
   return _TestAuthViewModel(
-    loginUseCase: _FakeLoginUseCase(login ?? (_, __) async => _entity()),
+    loginUseCase: _FakeLoginUseCase(login ?? (_, _) async => _entity()),
     registerUseCase: _FakeRegisterUseCase(register ?? () async => _entity()),
     logoutUseCase: _FakeLogoutUseCase(logout ?? () async {}),
     updateProfileUseCase: _FakeUpdateProfileUseCase(
@@ -183,7 +176,7 @@ void main() {
       '4. login success sets isAuthenticated=true and populates currentUser',
       () async {
         final entity = _entity();
-        final vm = _buildVM(login: (_, __) async => entity);
+        final vm = _buildVM(login: (_, _) async => entity);
 
         await vm.login('test@example.com', 'password123');
 
@@ -198,7 +191,7 @@ void main() {
       '5. login failure sets error and keeps isAuthenticated=false',
       () async {
         final vm = _buildVM(
-          login: (_, __) async => throw Exception('Bad credentials'),
+          login: (_, _) async => throw Exception('Bad credentials'),
         );
 
         await vm.login('bad@example.com', 'wrong');
